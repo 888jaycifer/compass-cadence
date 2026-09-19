@@ -1,0 +1,80 @@
+name: Deploy WebAssembly to GitHub Pages
+
+on:
+  push:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Ninja build tool
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build
+
+      - name: Setup Emscripten (emsdk)
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.64
+          actions-cache-folder: 'emsdk-cache'
+
+      - name: Verify Emscripten Toolchain
+        run: emcc -v
+
+      - name: Configure CMake (Emscripten Web Target)
+        run: |
+          emcmake cmake -B build-web -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCOMPASS_CADENCE_BUILD_WEB=ON
+
+      - name: Build WebAssembly Project
+        run: |
+          cmake --build build-web --config Release
+
+      - name: Prepare GitHub Pages Deployment Artifacts
+        run: |
+          mkdir -p dist
+          # Copy generated HTML, JS, and WASM binaries
+          if [ -f "build-web/index.html" ]; then
+            cp build-web/index.html dist/
+          elif [ -f "build-web/CompassCadenceWeb.html" ]; then
+            cp build-web/CompassCadenceWeb.html dist/index.html
+          fi
+          cp -r build-web/*.js dist/ 2>/dev/null || true
+          cp -r build-web/*.wasm dist/ 2>/dev/null || true
+          # Copy PWA assets (manifest, icons, service worker)
+          if [ -d "Web" ]; then
+            cp -r Web/* dist/
+          fi
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

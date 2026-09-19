@@ -1,0 +1,31 @@
+# Build directories
+build/
+build-*/
+cmake-build-*/
+.vs/
+out/
+
+# C++ build artifacts
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+*.slnx
+*.dir/
+*.vst3
+*.exe
+*.lib
+*.exp
+*.pdb
+*.ilk
+*.obj
+
+# CMake generated
+CMakeSettings.json
+CMakeUserPresets.json
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
