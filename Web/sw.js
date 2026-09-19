@@ -3,8 +3,8 @@ const CACHE_NAME = 'compass-cadence-v1';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  './index.js',
-  './index.wasm',
+  './style.css',
+  './app.js',
   './manifest.json'
 ];
 

@@ -60,62 +60,9 @@ set(COMPASS_CADENCE_SOURCES
     Source/UI/NotebookPageView.cpp
 )
 
-if (EMSCRIPTEN OR COMPASS_CADENCE_BUILD_WEB)
-    # -------------------------------------------------------------------------
-    # WebAssembly (WASM) Target via Emscripten
-    # -------------------------------------------------------------------------
-    add_executable(CompassCadenceWeb
-        Source/MainWeb.cpp
-        ${COMPASS_CADENCE_SOURCES}
-    )
-
-    target_compile_definitions(CompassCadenceWeb PRIVATE
-        JUCE_WASM=1
-        JUCE_WEB=1
-        COMPASS_CADENCE_BUILD_WEB=1
-        JUCE_STANDALONE_APPLICATION=1
-        JUCE_USE_CURL=0
-        JUCE_WEB_BROWSER=0
-    )
-
-    target_include_directories(CompassCadenceWeb PRIVATE Source)
-
-    target_link_libraries(CompassCadenceWeb PRIVATE
-        juce::juce_audio_utils
-        juce::juce_audio_processors
-        juce::juce_dsp
-        juce::juce_gui_basics
-        juce::juce_gui_extra
-    )
-
-    if (EMSCRIPTEN)
-        set(EMSCRIPTEN_LINK_FLAGS
-            "-s WASM=1"
-            "-s ALLOW_MEMORY_GROWTH=1"
-            "-s NO_EXIT_RUNTIME=1"
-            "-s USE_WEBGL2=1"
-            "-s FULL_ES2=1"
-            "-s MIN_WEBGL_VERSION=2"
-            "-s MAX_WEBGL_VERSION=2"
-            "-s FORCE_FILESYSTEM=1"
-            "-idbflags"
-            "-s EXPORTED_RUNTIME_METHODS=['ccall','cwrap','UTF8ToString','stringToUTF8','FS']"
-            "-s EXPORTED_FUNCTIONS=['_main']"
-            "-O3"
-            "--shell-file ${CMAKE_CURRENT_SOURCE_DIR}/Web/shell.html"
-        )
-        string(JOIN " " EMSCRIPTEN_LINK_FLAGS_STR ${EMSCRIPTEN_LINK_FLAGS})
-        set_target_properties(CompassCadenceWeb PROPERTIES
-            OUTPUT_NAME "index"
-            SUFFIX ".html"
-            LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS_STR}"
-        )
-    endif()
-
-else()
-    # -------------------------------------------------------------------------
-    # Desktop Native Targets: VST3 + Standalone .exe (Completely Unmodified)
-    # -------------------------------------------------------------------------
+# -------------------------------------------------------------------------
+# Desktop Native Targets: VST3 + Standalone .exe
+# -------------------------------------------------------------------------
     juce_add_plugin(CompassCadence
         COMPANY_NAME "OpenSourceAudio"
         IS_SYNTH FALSE
@@ -163,4 +110,3 @@ else()
         juce::juce_audio_processors
         juce::juce_audio_utils
     )
-endif()

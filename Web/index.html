@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Compass Cadence — Lyric & Rhythm Notepad</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#D97706">
+  <meta name="description" content="A songwriter's rhythm and syllable notebook for polyrhythms in poetry.">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧭</text></svg>">
+</head>
+<body>
+  <div id="app-container">
+    <!-- Header -->
+    <header>
+      <div class="header-row">
+        <div class="brand">
+          <svg class="brand-icon" viewBox="0 0 24 24">
+            <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
+          </svg>
+          Compass Cadence
+        </div>
+
+        <!-- Standalone Metronome & Transport -->
+        <div class="btn-group">
+          <button id="play-btn" class="btn highlight" title="Toggle Playback (Spacebar)">Play</button>
+          <button id="click-btn" class="btn" title="Toggle Click Audio">Click: ON</button>
+          <div class="stepper">
+            <button id="bpm-dec" title="Decrease Tempo">-</button>
+            <span id="tempo-span">120 BPM</span>
+            <button id="bpm-inc" title="Increase Tempo">+</button>
+          </div>
+        </div>
+
+        <div class="btn-group">
+          <button id="copy-btn" class="btn" title="Copy Lyrics to Clipboard (Ctrl+C)">Copy</button>
+          <button id="dark-mode-btn" class="btn" title="Toggle Light / Dark Mode">Dark: OFF</button>
+        </div>
+      </div>
+
+      <div class="header-row">
+        <div class="btn-group">
+          <button id="view-mode-btn" class="btn" title="Switch between Infinite Scroll and Pages">Scroll</button>
+          <button id="page-prev-btn" class="btn" title="Previous Page">&lt;</button>
+          <span id="page-label" style="font-size: 11px; font-weight: 600; padding: 0 4px; color: var(--text-muted);">Bars 1-16</span>
+          <button id="page-next-btn" class="btn" title="Next Page">&gt;</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Tabs Bar -->
+    <div id="tabs-bar" class="tabs-bar"></div>
+
+    <!-- Notebook Canvas Viewport -->
+    <div id="notebook-scroll-view">
+      <div id="notebook-sheet"></div>
+    </div>
+
+    <!-- Right-Click Context Menu -->
+    <div id="context-menu"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
