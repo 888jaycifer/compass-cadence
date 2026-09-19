@@ -578,7 +578,6 @@ input.cell-active-input.align-right { text-align: right; }
 }
 .align-underline-bar.active {
   background: var(--copper-hover);
-  box-shadow: 0 0 4px var(--copper-hover);
 }
 
 /* Syllable Counter Controls: [-] [15/15] [+] */

@@ -435,18 +435,7 @@
           syllables.push(pulseArr);
         });
 
-        // Seed initial lyrics for bars 0..19
-        if (b < INITIAL_RAP_LYRICS.length) {
-          const seedBar = INITIAL_RAP_LYRICS[b];
-          seedBar.forEach((pulseArr, p) => {
-            pulseArr.forEach((syl, s) => {
-              if (syllables[p] && syllables[p][s]) {
-                syllables[p][s].text = syl.text || '';
-                syllables[p][s].bold = !!syl.bold;
-              }
-            });
-          });
-        }
+        // Initial lyrics seeding removed to start with a clean slate
 
         bars.push({
           notation: notat,
@@ -1443,14 +1432,31 @@
         { name: 'Polyrhythm [333222]/6:4', notat: '[333222]/6:4' }
       ];
 
+      const customPresets = JSON.parse(localStorage.getItem('cc_presets') || '[]');
+
       this.presetMenu.innerHTML = `
         <div class="popup-menu-header">Factory Templates</div>
         ${templates.map((t, i) => `<div class="popup-menu-item" id="preset-tpl-${i}">${t.name}</div>`).join('')}
+        ${customPresets.length ? '<div class="popup-menu-separator"></div><div class="popup-menu-header">User Presets</div>' : ''}
+        ${customPresets.map((t, i) => `<div class="popup-menu-item" id="preset-usr-${i}">${t.name}</div>`).join('')}
       `;
       this.presetMenu.style.display = 'block';
 
       templates.forEach((t, i) => {
         const el = document.getElementById(`preset-tpl-${i}`);
+        if (el) {
+          el.onclick = () => {
+            this.pushSnapshot();
+            this.globalNotation = MetricNotation.fromString(t.notat);
+            this.updateHeader();
+            this.applyGlobalNotation();
+            this.presetMenu.style.display = 'none';
+          };
+        }
+      });
+
+      customPresets.forEach((t, i) => {
+        const el = document.getElementById(`preset-usr-${i}`);
         if (el) {
           el.onclick = () => {
             this.pushSnapshot();
@@ -1529,7 +1535,17 @@
         if (el) {
           el.onclick = () => {
             this.pushSnapshot();
-            this.tabs = savedSongs[n];
+            const loadedTabs = savedSongs[n];
+            loadedTabs.forEach(tab => {
+              tab.bars.forEach(bar => {
+                if (bar.notation && typeof bar.notation === 'object') {
+                  bar.notation = new MetricNotation(bar.notation.pulseSubdivs, bar.notation.beatsPerBar);
+                } else {
+                  bar.notation = new MetricNotation([3, 3, 3, 2, 2, 2], 4);
+                }
+              });
+            });
+            this.tabs = loadedTabs;
             this.activeTabIdx = 0;
             this.renderTabs();
             this.renderPage();
@@ -1646,6 +1662,9 @@
       const curStr = this.globalNotation.toString();
       const name = prompt('Enter preset name:', `My Flow ${curStr}`);
       if (name) {
+        const presets = JSON.parse(localStorage.getItem('cc_presets') || '[]');
+        presets.push({ name: name.trim(), notat: curStr });
+        localStorage.setItem('cc_presets', JSON.stringify(presets));
         alert(`Saved preset "${name.trim()}"`);
       }
     }
