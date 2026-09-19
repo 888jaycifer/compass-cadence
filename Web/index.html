@@ -2,63 +2,94 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Compass Cadence — Lyric & Rhythm Notepad</title>
+  <title>Compass Cadence</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#D97706">
-  <meta name="description" content="A songwriter's rhythm and syllable notebook for polyrhythms in poetry.">
+  <meta name="description" content="Multi-meter lyric notebook with syllable counts, phoneme rhymes, and live syncopated playback.">
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧭</text></svg>">
 </head>
 <body>
-  <div id="app-container">
-    <!-- Header -->
-    <header>
+  <div id="app-window">
+    <!-- VST3 Header Component -->
+    <header id="notebook-header">
+      <!-- Header Row 1 -->
       <div class="header-row">
-        <div class="brand">
-          <svg class="brand-icon" viewBox="0 0 24 24">
-            <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
-          </svg>
-          Compass Cadence
-        </div>
+        <div class="header-left">
+          <span class="header-label">Metric Grid:</span>
+          <input type="text" id="metric-grid-editor" class="notation-box" value="[4444]/4:4" title="Metric cross-rhythm notation [subdivisions per pulse]/pulses:beats (e.g. [333222]/6:4, [4444]/4:4)">
+          
+          <button id="preset-combo-btn" class="vst-btn" title="Select standard rhythmic flow template or custom preset">Templates / Presets... ▼</button>
+          <button id="save-preset-btn" class="vst-btn" title="Save current metric configuration as a custom preset">Save</button>
 
-        <!-- Standalone Metronome & Transport -->
-        <div class="btn-group">
-          <button id="play-btn" class="btn highlight" title="Toggle Playback (Spacebar)">Play</button>
-          <button id="click-btn" class="btn" title="Toggle Click Audio">Click: ON</button>
-          <div class="stepper">
-            <button id="bpm-dec" title="Decrease Tempo">-</button>
-            <span id="tempo-span">120 BPM</span>
-            <button id="bpm-inc" title="Increase Tempo">+</button>
+          <span class="header-label-dim" style="margin-left: 6px;">Pulses: <b id="pulses-count-val">4</b></span>
+          <div class="stepper-control">
+            <button id="dec-pulse-btn" class="mini-btn" title="Remove rightmost pulse group from the bar">-</button>
+            <button id="inc-pulse-btn" class="mini-btn" title="Append a new pulse group to each bar">+</button>
+          </div>
+
+          <span class="header-label-dim" style="margin-left: 6px;">Beats: <b id="beats-count-val">4</b></span>
+          <div class="stepper-control">
+            <button id="dec-beat-btn" class="mini-btn" title="Decrease reference beat count per bar (M)">-</button>
+            <button id="inc-beat-btn" class="mini-btn" title="Increase reference beat count per bar (M)">+</button>
           </div>
         </div>
 
-        <div class="btn-group">
-          <button id="copy-btn" class="btn" title="Copy Lyrics to Clipboard (Ctrl+C)">Copy</button>
-          <button id="dark-mode-btn" class="btn" title="Toggle Light / Dark Mode">Dark: OFF</button>
+        <div class="header-right">
+          <button id="rhyme-toggle-btn" class="vst-btn toggled" title="Highlight syllables by phonetic rhyme family">Rhymes: ON</button>
+          <button id="follow-toggle-btn" class="vst-btn toggled" title="Auto-scroll notebook view to follow active playhead position">Follow DAW: ON</button>
+          <button id="copy-btn" class="vst-btn" title="Copy highlighted lyrics to clipboard (or all lyrics if none selected). Also Ctrl+C">Copy</button>
+          <button id="export-btn" class="vst-btn" title="Export lyrics as formatted Text (.txt), Spreadsheet (.csv), or printable HTML table (.html)">Export ▼</button>
+          <button id="songs-btn" class="vst-btn" title="Save, load, and manage full song/lyrics projects">Songs ▼</button>
         </div>
       </div>
 
+      <!-- Header Row 2 -->
       <div class="header-row">
-        <div class="btn-group">
-          <button id="view-mode-btn" class="btn" title="Switch between Infinite Scroll and Pages">Scroll</button>
-          <button id="page-prev-btn" class="btn" title="Previous Page">&lt;</button>
-          <span id="page-label" style="font-size: 11px; font-weight: 600; padding: 0 4px; color: var(--text-muted);">Bars 1-16</span>
-          <button id="page-next-btn" class="btn" title="Next Page">&gt;</button>
+        <div class="header-left">
+          <button id="dark-mode-btn" class="vst-btn" title="Toggle between Warm Paper Light Mode and High-Contrast Dark Mode">Dark: OFF</button>
+          <button id="view-mode-btn" class="vst-btn" title="Toggle between Infinite Continuous Scroll and 16-Bar Pages">Scroll</button>
+
+          <button id="prev-page-btn" class="vst-btn" title="Go to previous page">&lt;</button>
+          <span id="page-display-label" class="header-label" style="min-width: 80px; text-align: center;">Page 1 / 20</span>
+          <button id="next-page-btn" class="vst-btn" title="Go to next page">&gt;</button>
+
+          <div class="stepper-control" style="margin-left: 10px;">
+            <button id="play-btn" class="vst-btn toggled" style="font-weight: 700;" title="Start or stop standalone transport playback (Spacebar)">Play</button>
+            <button id="metronome-btn" class="vst-btn" title="Toggle audio metronome click on/off">Click: ON</button>
+            <button id="dec-bpm-btn" class="mini-btn" title="Decrease standalone tempo">-</button>
+            <span id="bpm-val-label" class="header-label" style="min-width: 58px; text-align: center;">120 BPM</span>
+            <button id="inc-bpm-btn" class="mini-btn" title="Increase standalone tempo">+</button>
+          </div>
+        </div>
+
+        <div class="header-right">
+          <span id="daw-status-label" class="daw-status-text">120.0 BPM &nbsp;|&nbsp; 4/4 &nbsp;|&nbsp; [STOPPED]</span>
         </div>
       </div>
     </header>
 
-    <!-- Tabs Bar -->
-    <div id="tabs-bar" class="tabs-bar"></div>
-
-    <!-- Notebook Canvas Viewport -->
-    <div id="notebook-scroll-view">
-      <div id="notebook-sheet"></div>
+    <!-- Notebook Divider Tabs Bar -->
+    <div id="tabs-strip">
+      <!-- Populated dynamically by app.js -->
     </div>
 
-    <!-- Right-Click Context Menu -->
-    <div id="context-menu"></div>
+    <!-- Notebook Canvas Viewport -->
+    <div id="notebook-viewport">
+      <!-- Double-wire spiral binder canvas on left -->
+      <canvas id="spiral-canvas"></canvas>
+      <!-- Crimson notebook margin line -->
+      <div class="margin-rule-line"></div>
+      <!-- Page Content with lines of bars -->
+      <div id="notebook-page"></div>
+    </div>
+
+    <!-- Custom Popup Menus -->
+    <div id="preset-menu" class="popup-menu"></div>
+    <div id="export-menu" class="popup-menu"></div>
+    <div id="songs-menu" class="popup-menu"></div>
+    <div id="context-menu" class="popup-menu"></div>
   </div>
 
   <script src="app.js"></script>
