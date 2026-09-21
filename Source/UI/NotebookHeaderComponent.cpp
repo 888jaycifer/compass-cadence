@@ -1,8 +1,24 @@
 #include "NotebookHeaderComponent.h"
 #include "NotebookLookAndFeel.h"
+#include "VowelColorCustomizerDialog.h"
 
 namespace CompassCadence
 {
+
+class NotebookHeaderComponent::RhymeButtonListener : public juce::MouseListener
+{
+public:
+    RhymeButtonListener(NotebookHeaderComponent& owner) : header(owner) {}
+    void mouseDown(const juce::MouseEvent& e) override
+    {
+        if (e.mods.isPopupMenu())
+        {
+            header.showColorModeMenu();
+        }
+    }
+private:
+    NotebookHeaderComponent& header;
+};
 
 NotebookHeaderComponent::NotebookHeaderComponent(CompassCadenceAudioProcessor& proc, LyricDocument& doc)
     : processor(proc), document(&doc)
@@ -17,13 +33,13 @@ NotebookHeaderComponent::NotebookHeaderComponent(CompassCadenceAudioProcessor& p
     notationLabel.setTooltip("Metric cross-rhythm notation [subdivisions per pulse]/pulses:beats (e.g. [333222]/6:4, [4444]/4:4).");
     addAndMakeVisible(notationLabel);
 
-    notationEditor.setText(document->getNotation().toNotationString(), false);
-    notationEditor.setFont(juce::Font(juce::FontOptions("Consolas", 14.0f, juce::Font::bold)));
-    notationEditor.setColour(juce::TextEditor::textColourId, NotebookLookAndFeel::getGraphiteColour());
-    notationEditor.setColour(juce::TextEditor::backgroundColourId, juce::Colours::transparentBlack);
-    notationEditor.setColour(juce::TextEditor::outlineColourId, NotebookLookAndFeel::getLightGraphiteColour().withAlpha(0.35f));
-    notationEditor.setColour(juce::TextEditor::focusedOutlineColourId, NotebookLookAndFeel::getActivePlayheadBorder());
+    notationEditor.setFont(juce::Font(juce::FontOptions("Consolas", 13.5f, juce::Font::bold)));
+    notationEditor.setJustification(juce::Justification::centred);
+    notationEditor.setIndents(4, 1);
     notationEditor.addListener(this);
+    updateEditorColours();
+    notationEditor.setText(document->getNotation().toNotationString(), false);
+    updateEditorColours();
     addAndMakeVisible(notationEditor);
 
     // Preset Combo & Save Button
@@ -93,18 +109,27 @@ NotebookHeaderComponent::NotebookHeaderComponent(CompassCadenceAudioProcessor& p
     addAndMakeVisible(incBeatBtn);
 
     // Toggles
-    rhymeToggleBtn.setClickingTogglesState(true);
-    rhymeToggleBtn.setToggleState(document->getRhymeClassifier().isEnabled(), juce::dontSendNotification);
-    rhymeToggleBtn.setTooltip("Highlight syllables by phonetic rhyme family (terminal vowel/coda match).");
+    rhymeToggleBtn.setClickingTogglesState(false);
+    updateRhymeButtonDisplay();
     rhymeToggleBtn.onClick = [this] {
-        bool on = rhymeToggleBtn.getToggleState();
-        document->getRhymeClassifier().setEnabled(on);
-        rhymeToggleBtn.setButtonText(on ? "Rhymes: ON" : "Rhymes: OFF");
+        if (document == nullptr) return;
+        document->getRhymeClassifier().cycleColorMode();
+        updateRhymeButtonDisplay();
         document->refreshRhymes();
+        document->notifyChanged();
         if (auto* p = processor.getAPVTS().getParameter("rhymeHighlight"))
-            p->setValueNotifyingHost(on ? 1.0f : 0.0f);
+            p->setValueNotifyingHost(document->getRhymeClassifier().isEnabled() ? 1.0f : 0.0f);
     };
+    rhymeButtonListener = std::make_unique<RhymeButtonListener>(*this);
+    rhymeToggleBtn.addMouseListener(rhymeButtonListener.get(), false);
     addAndMakeVisible(rhymeToggleBtn);
+
+    rhymeColorsBtn.setTooltip("Customize vowel sound color palette...");
+    rhymeColorsBtn.onClick = [this] {
+        if (document != nullptr)
+            VowelColorCustomizerDialog::showDialog(this, *document);
+    };
+    addAndMakeVisible(rhymeColorsBtn);
 
     followToggleBtn.setClickingTogglesState(true);
     followToggleBtn.setToggleState(processor.isFollowDAW(), juce::dontSendNotification);
@@ -411,6 +436,7 @@ void NotebookHeaderComponent::setDocument(LyricDocument& newDoc)
         updatePageDisplay();
         updateViewModeDisplay();
         updateDarkModeDisplay();
+        updateRhymeButtonDisplay();
         refreshPresetCombo();
         repaint();
     }
@@ -468,7 +494,10 @@ void NotebookHeaderComponent::updateNotationDisplay()
     const auto& notat = document->getNotation();
     juce::String str = notat.toNotationString();
     if (notationEditor.getText() != str)
+    {
         notationEditor.setText(str, false);
+        updateEditorColours();
+    }
 
     pulseStepperLabel.setText("Pulses: " + juce::String(notat.getPulseCount()), juce::dontSendNotification);
     beatStepperLabel.setText("Beats: " + juce::String(notat.getBeatsPerBar()), juce::dontSendNotification);
@@ -511,10 +540,30 @@ void NotebookHeaderComponent::updateViewModeDisplay()
     updatePageDisplay();
 }
 
+void NotebookHeaderComponent::updateEditorColours()
+{
+    bool dark = document != nullptr ? document->isDarkMode() : NotebookLookAndFeel::isDarkMode();
+    auto textCol     = dark ? juce::Colour(0xFFF1F5F9) : juce::Colour(0xFF1E293B);
+    auto bgCol       = dark ? juce::Colour(0xFF27272A) : juce::Colour(0xFFFFFFFF);
+    auto outlineCol  = dark ? juce::Colour(0xFF52525B) : juce::Colour(0xFFCBD5E1);
+    auto focusCol    = dark ? juce::Colour(0xFFF59E0B) : juce::Colour(0xFFD97706);
+
+    notationEditor.setColour(juce::TextEditor::textColourId, textCol);
+    notationEditor.setColour(juce::TextEditor::backgroundColourId, bgCol);
+    notationEditor.setColour(juce::TextEditor::outlineColourId, outlineCol);
+    notationEditor.setColour(juce::TextEditor::focusedOutlineColourId, focusCol);
+    notationEditor.setColour(juce::TextEditor::highlightColourId, dark ? juce::Colour(0x603B82F6) : juce::Colour(0x60FFF59D));
+    notationEditor.setColour(juce::TextEditor::highlightedTextColourId, textCol);
+
+    notationEditor.applyColourToAllText(textCol, true);
+}
+
 void NotebookHeaderComponent::updateDarkModeDisplay()
 {
     if (document == nullptr) return;
     bool dark = document->isDarkMode();
+    NotebookLookAndFeel::setDarkMode(dark);
+
     darkModeToggleBtn.setButtonText(dark ? "Dark: ON" : "Dark: OFF");
     darkModeToggleBtn.setToggleState(dark, juce::dontSendNotification);
     darkModeToggleBtn.setTooltip(dark ? "Current: Dark Mode. Click to switch to Light Mode."
@@ -527,11 +576,59 @@ void NotebookHeaderComponent::updateDarkModeDisplay()
     pageLabel.setColour(juce::Label::textColourId, NotebookLookAndFeel::getGraphiteColour());
     dawStatusLabel.setColour(juce::Label::textColourId, NotebookLookAndFeel::getGraphiteColour());
     bpmLabel.setColour(juce::Label::textColourId, NotebookLookAndFeel::getGraphiteColour());
-    notationEditor.setColour(juce::TextEditor::textColourId, NotebookLookAndFeel::getGraphiteColour());
+
+    updateEditorColours();
 
     repaint();
     if (auto* editor = findParentComponentOfClass<juce::AudioProcessorEditor>())
         editor->repaint();
+}
+
+void NotebookHeaderComponent::updateRhymeButtonDisplay()
+{
+    if (document == nullptr) return;
+    auto mode = document->getRhymeClassifier().getColorMode();
+    switch (mode)
+    {
+        case RhymeClassifier::ColorMode::Off:
+            rhymeToggleBtn.setToggleState(false, juce::dontSendNotification);
+            rhymeToggleBtn.setButtonText("Colors: OFF");
+            rhymeToggleBtn.setTooltip("Color Mode: OFF. Click to cycle to Rhymes (phonetic vowels), then Repeats (2+ exact syllables). Right-click for menu.");
+            break;
+        case RhymeClassifier::ColorMode::Rhymes:
+            rhymeToggleBtn.setToggleState(true, juce::dontSendNotification);
+            rhymeToggleBtn.setButtonText("Rhymes: ON");
+            rhymeToggleBtn.setTooltip("Color Mode: Rhyme Scheme (phonetic vowel & slant rhymes). Click for Repeats (2+ exact syllables). Right-click for menu.");
+            break;
+        case RhymeClassifier::ColorMode::Repeats:
+            rhymeToggleBtn.setToggleState(true, juce::dontSendNotification);
+            rhymeToggleBtn.setButtonText("Repeats: 2+");
+            rhymeToggleBtn.setTooltip("Color Mode: Repetition Detector (highlights matching sequences of 2+ exact syllables). Click to turn OFF. Right-click for menu.");
+            break;
+    }
+}
+
+void NotebookHeaderComponent::showColorModeMenu()
+{
+    if (document == nullptr) return;
+    auto curMode = document->getRhymeClassifier().getColorMode();
+    juce::PopupMenu menu;
+    menu.addItem(1, "Rhymes (Phonetic Vowels)", true, curMode == RhymeClassifier::ColorMode::Rhymes);
+    menu.addItem(2, "Repeats (2+ Exact Syllables)", true, curMode == RhymeClassifier::ColorMode::Repeats);
+    menu.addItem(3, "Colors OFF", true, curMode == RhymeClassifier::ColorMode::Off);
+
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&rhymeToggleBtn), [this](int result) {
+        if (document == nullptr || result == 0) return;
+        if (result == 1) document->getRhymeClassifier().setColorMode(RhymeClassifier::ColorMode::Rhymes);
+        else if (result == 2) document->getRhymeClassifier().setColorMode(RhymeClassifier::ColorMode::Repeats);
+        else if (result == 3) document->getRhymeClassifier().setColorMode(RhymeClassifier::ColorMode::Off);
+
+        updateRhymeButtonDisplay();
+        document->refreshRhymes();
+        document->notifyChanged();
+        if (auto* p = processor.getAPVTS().getParameter("rhymeHighlight"))
+            p->setValueNotifyingHost(document->getRhymeClassifier().isEnabled() ? 1.0f : 0.0f);
+    });
 }
 
 void NotebookHeaderComponent::lyricDocumentChanged()
@@ -539,6 +636,7 @@ void NotebookHeaderComponent::lyricDocumentChanged()
     updateNotationDisplay();
     updateViewModeDisplay();
     updateDarkModeDisplay();
+    updateRhymeButtonDisplay();
 }
 
 void NotebookHeaderComponent::metricNotationChanged(const MetricNotation&)
@@ -555,6 +653,17 @@ void NotebookHeaderComponent::applyNotationFromText()
         MetricNotation parsed = MetricNotation::fromNotationString(text, document->getNotation().getBeatsPerBar());
         document->setNotation(parsed);
         updateNotationDisplay();
+    }
+    updateEditorColours();
+}
+
+void NotebookHeaderComponent::textEditorTextChanged(juce::TextEditor& ed)
+{
+    if (&ed == &notationEditor)
+    {
+        bool dark = document != nullptr ? document->isDarkMode() : NotebookLookAndFeel::isDarkMode();
+        auto textCol = dark ? juce::Colour(0xFFF1F5F9) : juce::Colour(0xFF1E293B);
+        notationEditor.applyColourToAllText(textCol, true);
     }
 }
 
@@ -869,8 +978,11 @@ void NotebookHeaderComponent::resized()
     int row2Y = 41;
     curX = startX;
 
-    rhymeToggleBtn.setBounds(curX, row2Y, 98, 26);
-    curX += 98 + 6;
+    rhymeToggleBtn.setBounds(curX, row2Y, 96, 26);
+    curX += 96 + 3;
+
+    rhymeColorsBtn.setBounds(curX, row2Y, 32, 26);
+    curX += 32 + 6;
 
     followToggleBtn.setBounds(curX, row2Y, 114, 26);
     curX += 114 + 6;

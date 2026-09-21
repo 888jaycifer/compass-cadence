@@ -58,6 +58,8 @@ set(COMPASS_CADENCE_SOURCES
     Source/UI/NotebookTabBarComponent.cpp
     Source/UI/NotebookPageView.h
     Source/UI/NotebookPageView.cpp
+    Source/UI/VowelColorCustomizerDialog.h
+    Source/UI/VowelColorCustomizerDialog.cpp
 )
 
 # -------------------------------------------------------------------------

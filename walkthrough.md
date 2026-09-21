@@ -203,7 +203,70 @@ All 24 test suites passed with exit code 0:
 [10.21] Dynamic line insertion (insertBar)... Passed!
 [10.22] Syllable cell alignment (Left, Down/Center, Right)... Passed!
 [10.23] Immediate Theme / Dark Mode sync... Passed!
+### 8. 3-Mode Rhyme Toggle & Syllable Repetition Detector (2+ Syllables)
+- **3-Mode Toggle System**:
+  - `Rhymes: ON`: Phonetic vowel sound and slant rhyme detector (15 basic vowel families with CMUDict and surround-context classification).
+  - `Repeats: 2+`: Repetition detector highlighting exact matching syllable sequences of length $\ge 2$ across the document.
+  - `Colors: OFF`: Silences all automated highlights (custom manual colors remain untouched).
+  - Left-clicking cycles: `Rhymes: ON` $\rightarrow$ `Repeats: 2+` $\rightarrow$ `Colors: OFF` $\rightarrow$ `Rhymes: ON`.
+  - Right-clicking opens a context menu allowing direct selection of any mode with checkmark indicators.
+- **Maximal Sequence Matching Algorithm**:
+  - Normalizes syllable text (lowercasing and stripping punctuation so commas, hyphens, exclamation marks don't hinder matching).
+  - Discards non-maximal left extensions so identical substrings belong to one maximal sequence.
+  - Enforces minimum match length $L \ge 2$: isolated repeated syllables (e.g. "the", "a", "I") are left uncolored.
+  - Distinct highlighter colors from the 12-color palette are assigned per unique phrase key, ensuring matching phrases visually cluster together across verses.
+- **1:1 Alignment Across Engines**:
+  - Implemented in JUCE C++ (`RhymeClassifier.h/cpp`, `LyricDocument.h/cpp`, `SyllableCellComponent.cpp`, `NotebookHeaderComponent.h/cpp`) for VST3 and Standalone.
+  - Implemented in Vanilla JS (`Web/app.js`) for the Web & PWA builds.
+  - Fully integrated into ValueTree serialization for DAW project save/restore.
+
+---
+
+### Test Suite Output
+```
+[1] Juce GUI initialized.
+[2] Creating CompassCadenceAudioProcessor...
+[3] Processor created successfully: Compass Cadence
+[4] Preparing to play (44100, 512)...
+[5] Creating Editor...
+[6] Editor created successfully! Bounds: 0 0 1040 720
+[7] Simulating timerCallback...
+[8] timerCallback succeeded!
+[9] Simulating paint...
+  [9.1] Painting editor base... Passed!
+  [9.2] Painting child 0 (class CompassCadence::NotebookHeaderComponent)... Passed child 0!
+  [9.2] Painting child 1 (class CompassCadence::NotebookTabBarComponent)... Passed child 1!
+  [9.2] Painting child 2 (class CompassCadence::NotebookPageView)... Passed child 2!
+  [9.2] Painting child 3 (class juce::ResizableCornerComponent)... Passed child 3!
+  [9.2] Painting child 4 (class CompassCadence::NonTextTooltipWindow)... Passed child 4!
+  [9.2] Painting child 5 (class juce::ResizableCornerComponent)... Passed child 5!
+[10] All paints succeeded!
+[10.1] Testing Syllable Auto-Splitting... Passed!
+[10.2] Testing Undo / Redo... Passed!
+[10.3] Testing Multi-cell selection & Join... Passed!
+[10.4] Testing Rhyme Key Determinism & Hyphen filter... Passed!
+[10.5] Testing Per-Bar Metric Notation & Mixed Polymeter... Passed!
+[10.6] Testing Syllable Splitter -es and -ed rules... Passed!
+[10.7] Testing Bold Emphasis Notation... Passed!
+[10.8] Testing PresetManager... Passed!
+[10.9] Testing Syllable Counter & Actual Spoken Count Customization... Passed!
+[10.10] Testing Page Navigation & Display Shifting... Passed!
+[10.11] Testing Scroll Mode vs. Pages Mode & Infinite Vertical Expansion... Passed!
+[10.12] Testing Clipboard Copy and Tooltip Suppression... Passed!
+[10.13] Testing Standalone Metronome Synthesis & Transport... Passed!
+[10.14] Testing Cell Text Alignment & Auto-Splitting Alignment... Passed!
+[10.15] Testing CMUDict Rhyme Engine & Non-Colliding Color Assignment... Passed!
+[10.16] Testing Full Export... Passed!
+[10.17] Testing SongManager... Passed!
+[10.18] Testing Dark Mode & Variable Shading Colors... Passed!
+[10.19] Multi-Tab layout & unsynced duplicates... Passed!
+[10.20] Custom Stanza Breaks... Passed!
+[10.21] Dynamic line insertion (insertBar)... Passed!
+[10.22] Syllable cell alignment (Left, Down/Center, Right)... Passed!
+[10.23] Immediate Theme / Dark Mode sync... Passed!
 [10.24] Syllable right-click utilities (custom color, case transforms, duplicate)... Passed!
+[10.25] Bar Height, Meter Truncation, Context Vowels, and Palette Customization... Passed!
+[10.26] 3-Mode Rhyme Toggle & Syllable Repetition Detector (2+ Syllables)... Passed!
 [11] Clean teardown succeeded!
 [12] ALL TESTS PASSED SAFELY!
 ```

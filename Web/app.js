@@ -72,71 +72,140 @@
   }
 
   // =========================================================================
-  // 2. Syllable & Phoneme Engine (CMUDict Rhyme Classifier)
   // =========================================================================
+  // 2. Syllable & Phoneme Engine (Pure Vowel Sound Rhyme Classifier)
+  // =========================================================================
+  const VOWEL_CATALOG = [
+    { key: "EY",   label: "long Ay",       examples: "day, say, cake",    defaultColor: "rgba(147, 197, 253, 0.65)" }, // Pastel Sky
+    { key: "AE",   label: "short Ah",      examples: "cat, rap, back",    defaultColor: "rgba(254, 215, 170, 0.65)" }, // Pastel Peach
+    { key: "IY",   label: "long Ee",       examples: "see, beat, key",    defaultColor: "rgba(134, 239, 172, 0.65)" }, // Pastel Mint
+    { key: "EH",   label: "short Eh",      examples: "bed, red, set",     defaultColor: "rgba(254, 205, 211, 0.65)" }, // Pastel Rose
+    { key: "AY",   label: "long Eye",      examples: "my, ride, night",   defaultColor: "rgba(221, 214, 254, 0.65)" }, // Pastel Lavender
+    { key: "IH",   label: "short Ih",      examples: "hit, spit, kick",   defaultColor: "rgba(254, 240, 138, 0.65)" }, // Pastel Butter
+    { key: "OW",   label: "long Oh",       examples: "go, flow, soul",    defaultColor: "rgba(253, 186, 116, 0.65)" }, // Pastel Amber
+    { key: "AO",   label: "short Aw",      examples: "all, call, law",    defaultColor: "rgba(167, 243, 208, 0.65)" }, // Pastel Emerald
+    { key: "UW",   label: "long Oo",       examples: "true, blue, moon",  defaultColor: "rgba(199, 210, 254, 0.65)" }, // Pastel Indigo
+    { key: "AH",   label: "short Uh",      examples: "cut, up, blood",    defaultColor: "rgba(254, 249, 195, 0.65)" }, // Pastel Canary
+    { key: "AW",   label: "diphthong Ow",  examples: "out, loud, sound",  defaultColor: "rgba(240, 171, 252, 0.65)" }, // Pastel Fuchsia
+    { key: "OY",   label: "diphthong Oy",  examples: "boy, joy, noise",   defaultColor: "rgba(165, 243, 252, 0.65)" }, // Pastel Cyan
+    { key: "AA_R", label: "r-colored Ar",  examples: "car, star, hard",   defaultColor: "rgba(203, 213, 225, 0.65)" }, // Pastel Slate
+    { key: "AO_R", label: "r-colored Or",  examples: "door, four, core",  defaultColor: "rgba(251, 207, 232, 0.65)" }, // Pastel Pink
+    { key: "ER",   label: "r-colored Er",  examples: "bird, word, hurt",  defaultColor: "rgba(228, 228, 231, 0.65)" }  // Pastel Zinc
+  ];
+
   class RhymeClassifier {
     static extractRhymeKey(word) {
-      if (!word) return '';
-      let clean = word.toLowerCase().replace(/[^a-z']/g, '');
-      if (!clean) return '';
-      if (clean.endsWith('-')) clean = clean.slice(0, -1);
+      return this.extractRhymeKeyWithContext(word, '', '');
+    }
 
-      // Known dictionary mappings for rap lyrics
+    static extractRhymeKeyWithContext(word, prevSyl = '', nextSyl = '') {
+      if (!word) return '';
+      let clean = word.toLowerCase().replace(/[^a-z'-]/g, '');
+      if (!clean) return '';
+      
+      // If it is a hyphenated prefix/stem that is not the end of a word, it doesn't rhyme by itself
+      if (clean.endsWith('-')) return '';
+
+      // Context-aware "a": distinguish unstressed schwa in "un-der-stand-a-ble" from standalone "a" ("long Ay")
+      if (clean === 'a') {
+        const hasSurroundingStem = (prevSyl && prevSyl.endsWith('-')) || (nextSyl && nextSyl.startsWith('-')) || (nextSyl && nextSyl.endsWith('-'));
+        return hasSurroundingStem ? 'AH' : 'EY';
+      }
+
+      // Suffix schwa rules
+      if (clean.endsWith('able') || clean.endsWith('ible') || clean.endsWith('al') || clean.endsWith('ful') || 
+          clean.endsWith('less') || clean.endsWith('ness') || clean.endsWith('ment') || clean.endsWith('ous') ||
+          clean.endsWith('tion') || clean.endsWith('sion') || clean.endsWith('ion')) {
+        return 'AH';
+      }
+
+      // Standalone "I" / "i" and common "I-" contractions are always [AY] ("long Eye")
+      if (clean === 'i' || clean === 'im' || clean === 'ive' || clean === 'id' ||
+          word.toLowerCase() === "i'm" || word.toLowerCase() === "i've" || word.toLowerCase() === "i'd" || word.toLowerCase() === "i'll") {
+        return 'AY';
+      }
+
+      // Explicit dictionary for irregulars/slang/common rap terms
       const dict = {
-        'to': 'UW', 'you': 'UW', 'through': 'UW', 'true': 'UW', 'lu': 'UW',
-        'no': 'OW', 'so': 'OW', 'go': 'OW', 'pro': 'OW', 'bo': 'OW',
-        'set': 'EH_T', 'let': 'EH_T', 'get': 'EH_T',
-        'out': 'AW_T', 'about': 'AW_T', 'doubt': 'AW_T',
-        'put': 'UH_T', 'foot': 'UH_T',
-        'all': 'AO_L', 'fall': 'AO_L', 'call': 'AO_L',
-        'down': 'AW_N', 'town': 'AW_N',
-        'pa': 'AA', 'per': 'ER', 'were': 'ER', 'her': 'ER',
-        'way': 'EY', 'say': 'EY', 'they': 'EY', 'lay': 'EY',
-        'side': 'AY_D', 'hide': 'AY_D',
-        'space': 'EY_S', 'place': 'EY_S',
-        'hand': 'AE_N_D', 'stand': 'AE_N_D',
-        'if': 'IH_F',
-        'see': 'IY', 'be': 'IY', 'me': 'IY', 'we': 'IY',
-        'great': 'EY_T', 'hate': 'EY_T',
-        'prob': 'AA_B', 'ob': 'AA_B',
-        'head': 'EH_D', 'bed': 'EH_D',
-        'read': 'IY_D',
-        'form': 'AO_R_M',
-        'core': 'AO_R',
-        'sub': 'AH_B',
-        'box': 'AA_K_S',
+        'i': 'AY', 'im': 'AY', 'ive': 'AY', 'id': 'AY', 'hi': 'AY', 'wild': 'AY', 'child': 'AY',
+        'it': 'IH', 'is': 'IH', 'in': 'IH', 'if': 'IH', 'with': 'IH', 'give': 'IH',
+        'to': 'UW', 'you': 'UW', 'through': 'UW', 'true': 'UW', 'lu': 'UW', 'who': 'UW', 'do': 'UW', 'two': 'UW', 'shoe': 'UW',
+        'no': 'OW', 'so': 'OW', 'go': 'OW', 'pro': 'OW', 'bo': 'OW', 'flow': 'OW', 'low': 'OW', 'show': 'OW', 'glow': 'OW', 'dough': 'OW',
+        'set': 'EH', 'let': 'EH', 'get': 'EH', 'bet': 'EH', 'met': 'EH', 'net': 'EH', 'wet': 'EH', 'pet': 'EH',
+        'out': 'AW', 'about': 'AW', 'doubt': 'AW', 'shout': 'AW', 'cloud': 'AW', 'proud': 'AW', 'round': 'AW', 'bound': 'AW', 'sound': 'AW', 'ground': 'AW',
+        'put': 'UH', 'foot': 'UH', 'look': 'UH', 'book': 'UH', 'took': 'UH', 'cook': 'UH', 'good': 'UH', 'hood': 'UH', 'wood': 'UH',
+        'all': 'AO', 'fall': 'AO', 'call': 'AO', 'ball': 'AO', 'tall': 'AO', 'wall': 'AO', 'small': 'AO', 'raw': 'AO', 'saw': 'AO', 'law': 'AO', 'flaw': 'AO',
+        'down': 'AW', 'town': 'AW', 'brown': 'AW', 'crown': 'AW', 'drown': 'AW', 'frown': 'AW', 'noun': 'AW',
+        'pa': 'AE', 'per': 'ER', 'were': 'ER', 'her': 'ER', 'sir': 'ER', 'fur': 'ER', 'purr': 'ER',
+        'way': 'EY', 'say': 'EY', 'they': 'EY', 'lay': 'EY', 'pay': 'EY', 'may': 'EY', 'day': 'EY', 'stay': 'EY', 'play': 'EY', 'pray': 'EY',
+        'side': 'AY', 'hide': 'AY', 'ride': 'AY', 'tide': 'AY', 'wide': 'AY', 'guide': 'AY', 'pride': 'AY',
+        'night': 'AY', 'right': 'AY', 'bright': 'AY', 'fight': 'AY', 'light': 'AY', 'sight': 'AY', 'tight': 'AY', 'might': 'AY', 'white': 'AY',
+        'space': 'EY', 'place': 'EY', 'face': 'EY', 'race': 'EY', 'case': 'EY', 'base': 'EY', 'chase': 'EY', 'grace': 'EY',
+        'hand': 'AE', 'stand': 'AE', 'band': 'AE', 'land': 'AE', 'grand': 'AE', 'brand': 'AE', 'sand': 'AE',
+        'if': 'IH', 'spit': 'IH', 'hit': 'IH', 'lit': 'IH', 'fit': 'IH', 'sit': 'IH', 'bit': 'IH', 'quit': 'IH',
+        'see': 'IY', 'be': 'IY', 'me': 'IY', 'we': 'IY', 'he': 'IY', 'she': 'IY', 'tree': 'IY', 'free': 'IY', 'flee': 'IY', 'glee': 'IY',
+        'great': 'EY', 'hate': 'EY', 'late': 'EY', 'mate': 'EY', 'fate': 'EY', 'date': 'EY', 'state': 'EY', 'rate': 'EY', 'weight': 'EY',
+        'prob': 'AA', 'ob': 'AA', 'drop': 'AA', 'top': 'AA', 'stop': 'AA', 'pop': 'AA', 'cop': 'AA', 'hop': 'AA', 'lock': 'AA', 'rock': 'AA',
+        'head': 'EH', 'bed': 'EH', 'dead': 'EH', 'red': 'EH', 'said': 'EH', 'bread': 'EH', 'lead': 'EH', 'spread': 'EH',
+        'read': 'IY',
+        'form': 'AO_R', 'core': 'AO_R', 'more': 'AO_R', 'door': 'AO_R', 'floor': 'AO_R', 'score': 'AO_R', 'store': 'AO_R', 'war': 'AO_R',
+        'sub': 'AH', 'club': 'AH', 'rub': 'AH', 'tub': 'AH', 'love': 'AH', 'glove': 'AH', 'above': 'AH', 'dove': 'AH',
+        'box': 'AA', 'fox': 'AA',
         'sor': 'AO_R',
-        'ry': 'IY',
-        'worth': 'ER_TH',
-        'saying': 'EY_IH_NG',
-        'fra': 'EY',
-        'ming': 'IH_NG',
-        'cash': 'AE_SH',
-        'drugs': 'AH_G_Z',
-        'hands': 'AE_N_D_Z',
-        'means': 'IY_N_Z',
-        'fun': 'AH_N',
-        'cap': 'AE_P'
+        'ry': 'IY', 'city': 'IY', 'pretty': 'IY', 'busy': 'IY', 'easy': 'IY',
+        'worth': 'ER', 'earth': 'ER', 'birth': 'ER', 'first': 'ER', 'worst': 'ER',
+        'saying': 'EY', 'fra': 'EY', 'ming': 'IH',
+        'cash': 'AE', 'flash': 'AE', 'trash': 'AE', 'dash': 'AE', 'smash': 'AE',
+        'drugs': 'AH', 'thugs': 'AH', 'slugs': 'AH', 'bugs': 'AH', 'hugs': 'AH',
+        'hands': 'AE', 'bands': 'AE',
+        'means': 'IY', 'dreams': 'IY', 'teams': 'IY', 'schemes': 'IY',
+        'fun': 'AH', 'run': 'AH', 'sun': 'AH', 'gun': 'AH', 'one': 'AH', 'done': 'AH',
+        'cap': 'AE', 'rap': 'AE', 'trap': 'AE', 'map': 'AE', 'slap': 'AE',
+        'hard': 'AA_R', 'card': 'AA_R', 'yard': 'AA_R', 'star': 'AA_R', 'far': 'AA_R', 'bar': 'AA_R', 'car': 'AA_R', 'dark': 'AA_R', 'park': 'AA_R',
+        'boy': 'OY', 'toy': 'OY', 'joy': 'OY', 'coin': 'OY', 'join': 'OY', 'voice': 'OY', 'noise': 'OY', 'choice': 'OY'
       };
 
       if (dict[clean]) return dict[clean];
 
-      // Fallback phonetic suffix
-      const match = clean.match(/([aeiouy]+[^aeiouy]*)$/i);
-      return match ? match[1].toUpperCase() : clean.slice(-2).toUpperCase();
+      // Phonetic pattern matching on word endings (pure vowel nucleus)
+      if (/(?:ar|ard|ark|arm|art|ars|arch|arge)$/i.test(clean)) return 'AA_R';
+      if (/(?:or|ore|oar|oor|ord|ork|orm|orn|ort|our|ours)$/i.test(clean)) return 'AO_R';
+      if (/(?:er|ir|ur|ear|eer|ier|word|work|worm|burn|turn|hurt|bird|girl|shirt)$/i.test(clean)) return 'ER';
+
+      // Diphthongs
+      if (/(?:oy|oi|oin|oyz)$/i.test(clean)) return 'OY';
+      if (/(?:ow|ou|ound|ount|oud|out|ouse|outh)$/i.test(clean)) return 'AW';
+
+      // Long vowels
+      if (/(?:igh|ight|y|ie|ine|ide|ime|ite|ike|ife|ire|ice|ise|ize)$/i.test(clean)) return 'AY';
+      if (/(?:ee|ea|eat|eep|eak|eed|eel|eam|ean|ease|ieve|iece|ey)$/i.test(clean)) return 'IY';
+      if (/(?:ay|ai|aid|ail|aim|ain|ait|ake|ame|ane|ape|ate|ave|aze)$/i.test(clean)) return 'EY';
+      if (/(?:oa|oat|oak|oam|oan|oad|ose|oke|ole|ome|one|ope|ote|ove)$/i.test(clean)) return 'OW';
+      if (/(?:oo|oon|oom|ool|oot|oop|oose|ooth|ue|uit|ute|une|ule|ube)$/i.test(clean)) return 'UW';
+
+      // Short vowels / schwas
+      if (/(?:ack|ash|at|ap|am|an|ag|ad|ax|ab|atch)$/i.test(clean)) return 'AE';
+      if (/(?:eck|esh|et|ep|em|en|eg|ed|ex|eb|etch)$/i.test(clean)) return 'EH';
+      if (/(?:ick|ish|it|ip|im|in|ig|id|ix|ib|itch)$/i.test(clean)) return 'IH';
+      if (/(?:ock|osh|ot|op|om|on|og|od|ox|ob|otch)$/i.test(clean)) return 'AA';
+      if (/(?:uck|ush|ut|up|um|un|ug|ud|ux|ub|utch)$/i.test(clean)) return 'AH';
+      if (/(?:all|aw|alk|alt|aught|ought)$/i.test(clean)) return 'AO';
+
+      // Last resort: inspect the last vowel letter
+      const lastVowelMatch = clean.match(/[aeiouy](?=[^aeiouy]*$)/i);
+      if (lastVowelMatch) {
+        const v = lastVowelMatch[0].toLowerCase();
+        if (v === 'a') return clean.endsWith('a') ? 'EY' : 'AE';
+        if (v === 'e') return clean.endsWith('e') ? 'IY' : 'EH';
+        if (v === 'i') return clean.endsWith('i') ? 'AY' : 'IH';
+        if (v === 'o') return clean.endsWith('o') ? 'OW' : 'AO';
+        if (v === 'u') return clean.endsWith('u') ? 'UW' : 'AH';
+        if (v === 'y') return 'AY';
+      }
+
+      return 'AH';
     }
   }
-
-  // 7 Stationery Pastel Swatches matching VST3 exactly
-  const PASTEL_SWATCHES = [
-    { name: 'Pastel Mint', color: 'rgba(134, 239, 172, 0.65)' },
-    { name: 'Pastel Sky', color: 'rgba(147, 197, 253, 0.65)' },
-    { name: 'Pastel Peach', color: 'rgba(254, 215, 170, 0.65)' },
-    { name: 'Pastel Lavender', color: 'rgba(221, 214, 254, 0.65)' },
-    { name: 'Pastel Butter', color: 'rgba(254, 240, 138, 0.65)' },
-    { name: 'Pastel Rose', color: 'rgba(254, 205, 211, 0.65)' },
-    { name: 'Slate Gray', color: 'rgba(203, 213, 225, 0.65)' }
-  ];
 
   // =========================================================================
   // 3. Web Audio Standalone Metronome Synthesizer
@@ -423,7 +492,7 @@
       this.currentPage = 0;
       this.viewMode = 'scroll'; // 'scroll' (default) or 'pages'
       this.darkMode = true;
-      this.rhymesEnabled = false;
+      this.colorMode = 'rhymes'; // 'off' | 'rhymes' | 'repeats'
       this.followDAW = true;
       this.autoSplitEnabled = true;
       this.isDraggingSelection = false;
@@ -441,6 +510,7 @@
       this.redoStack = [];
       this.selectedCells = new Set();
       this.activeEditor = null; // { b, pIdx, sIdx, inputEl }
+      this.customVowelColors = JSON.parse(localStorage.getItem('cc_vowel_colors') || '{}');
 
       this.initBars();
       this.cacheDOMElements();
@@ -449,6 +519,27 @@
       this.renderPage();
       this.drawSpiralCanvas();
       window.addEventListener('resize', () => this.drawSpiralCanvas());
+    }
+
+    getVowelColor(vowelKey) {
+      if (this.customVowelColors && this.customVowelColors[vowelKey]) {
+        return this.customVowelColors[vowelKey];
+      }
+      const item = VOWEL_CATALOG.find(v => v.key === vowelKey);
+      return item ? item.defaultColor : 'rgba(203, 213, 225, 0.65)';
+    }
+
+    setVowelColor(vowelKey, color) {
+      if (!this.customVowelColors) this.customVowelColors = {};
+      this.customVowelColors[vowelKey] = color;
+      localStorage.setItem('cc_vowel_colors', JSON.stringify(this.customVowelColors));
+      this.renderPage();
+    }
+
+    resetVowelColorsToDefaults() {
+      this.customVowelColors = {};
+      localStorage.removeItem('cc_vowel_colors');
+      this.renderPage();
     }
 
     initBars() {
@@ -538,9 +629,18 @@
       this.songsMenu = document.getElementById('songs-menu');
       this.contextMenu = document.getElementById('context-menu');
       this.rowAddMenu = document.getElementById('row-add-menu');
+      this.vowelPaletteBtn = document.getElementById('vowel-palette-btn');
+      this.vowelPaletteDialog = document.getElementById('vowel-palette-dialog');
     }
 
     bindUI() {
+      if (this.vowelPaletteBtn) {
+        this.vowelPaletteBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.openVowelPaletteDialog();
+        });
+      }
+
       // Metric Grid Text Input
       this.metricInput.addEventListener('change', (e) => {
         this.pushSnapshot();
@@ -588,12 +688,23 @@
       // DAW Status click toggles Play/Stop
       this.dawStatusLabel.addEventListener('click', () => this.togglePlayback());
 
-      // Rhymes Toggle
+      // Color Mode Toggle (Rhymes -> Repeats -> Off)
+      this.updateColorModeButton();
       this.rhymeToggleBtn.addEventListener('click', () => {
-        this.rhymesEnabled = !this.rhymesEnabled;
-        this.rhymeToggleBtn.classList.toggle('toggled', this.rhymesEnabled);
-        this.rhymeToggleBtn.textContent = this.rhymesEnabled ? 'Rhymes: ON' : 'Rhymes: OFF';
+        if (this.colorMode === 'off') {
+          this.colorMode = 'rhymes';
+        } else if (this.colorMode === 'rhymes') {
+          this.colorMode = 'repeats';
+        } else {
+          this.colorMode = 'off';
+        }
+        this.updateColorModeButton();
         this.renderPage();
+      });
+
+      this.rhymeToggleBtn.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        this.showColorModeMenu(e);
       });
 
       // Follow DAW Toggle
@@ -741,6 +852,9 @@
           newSyllables.push(pulseArr);
         });
         bar.syllables = newSyllables;
+        if (bar.customSpokenCount != null && bar.customSpokenCount > bar.notation.getTotalSyllables()) {
+          bar.customSpokenCount = bar.notation.getTotalSyllables();
+        }
       });
       this.renderPage();
     }
@@ -880,6 +994,76 @@
         this.pageLabel.textContent = `Bars 1-${tab.bars.length}`;
       }
 
+      // Repetition map for 'repeats' color mode (exact syllable sequences of length >= 2)
+      const repeatCellMap = new Map(); // key: `${b}-${pIdx}-${sIdx}` -> color string
+      if (this.colorMode === 'repeats') {
+        const tokens = [];
+        const cleanSyl = (str) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        tab.bars.forEach((barObj, bIdx) => {
+          barObj.syllables.forEach((pulseArr, pIdx) => {
+            pulseArr.forEach((syl, sIdx) => {
+              const cleaned = cleanSyl(syl.text);
+              if (cleaned) {
+                tokens.push({ b: bIdx, p: pIdx, s: sIdx, clean: cleaned });
+              }
+            });
+          });
+        });
+
+        const M = tokens.length;
+        if (M >= 2) {
+          const palette = [
+            'rgba(245, 158, 11, 0.45)', // Amber
+            'rgba(59, 130, 246, 0.45)',  // Blue
+            'rgba(16, 185, 129, 0.45)', // Emerald
+            'rgba(236, 72, 153, 0.45)', // Pink
+            'rgba(139, 92, 246, 0.45)', // Purple
+            'rgba(20, 184, 166, 0.45)',  // Teal
+            'rgba(249, 115, 22, 0.45)', // Orange
+            'rgba(6, 182, 212, 0.45)',  // Cyan
+            'rgba(234, 179, 8, 0.45)',   // Yellow
+            'rgba(168, 85, 247, 0.45)', // Violet
+            'rgba(34, 197, 94, 0.45)',   // Green
+            'rgba(244, 63, 94, 0.45)'    // Rose
+          ];
+          let nextColorIdx = 0;
+          const phraseColours = new Map();
+
+          for (let i = 0; i < M; ++i) {
+            for (let j = i + 1; j < M; ++j) {
+              if (i > 0 && tokens[i - 1].clean === tokens[j - 1].clean) continue;
+
+              let L = 0;
+              while (j + L < M && i + L < j && tokens[i + L].clean === tokens[j + L].clean) {
+                L++;
+              }
+
+              if (L >= 2) {
+                let phraseKey = '';
+                for (let m = 0; m < L; ++m) {
+                  phraseKey += tokens[i + m].clean + '|';
+                }
+
+                let phraseCol = phraseColours.get(phraseKey);
+                if (!phraseCol) {
+                  phraseCol = palette[nextColorIdx % palette.length];
+                  phraseColours.set(phraseKey, phraseCol);
+                  nextColorIdx++;
+                }
+
+                for (let m = 0; m < L; ++m) {
+                  const keyI = `${tokens[i + m].b}-${tokens[i + m].p}-${tokens[i + m].s}`;
+                  const keyJ = `${tokens[j + m].b}-${tokens[j + m].p}-${tokens[j + m].s}`;
+                  if (!repeatCellMap.has(keyI)) repeatCellMap.set(keyI, phraseCol);
+                  if (!repeatCellMap.has(keyJ)) repeatCellMap.set(keyJ, phraseCol);
+                }
+              }
+            }
+          }
+        }
+      }
+
       for (let b = startBar; b < endBar; b++) {
         const bar = tab.bars[b];
         const row = document.createElement('div');
@@ -924,13 +1108,31 @@
             cell.className = 'syllable-cell';
             cell.id = `cell-${b}-${pIdx}-${sIdx}`;
 
-            // Rhyme or Custom Highlight Tint
+            // Rhyme, Repeat, or Custom Highlight Tint
             if (syl.customColor) {
               cell.style.backgroundColor = syl.customColor;
-            } else if (this.rhymesEnabled && syl.text.trim()) {
-              const rKey = RhymeClassifier.extractRhymeKey(syl.text.trim());
-              const hash = Math.abs(rKey.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0));
-              cell.style.backgroundColor = PASTEL_SWATCHES[hash % PASTEL_SWATCHES.length].color;
+            } else if (this.colorMode === 'repeats') {
+              const repColor = repeatCellMap.get(`${b}-${pIdx}-${sIdx}`);
+              if (repColor) {
+                cell.style.backgroundColor = repColor;
+              }
+            } else if (this.colorMode === 'rhymes' && syl.text.trim()) {
+              let prevSyl = '', nextSyl = '';
+              const allSylsInBar = [];
+              bar.syllables.forEach(p => p.forEach(s => allSylsInBar.push(s)));
+              let curLinearIdx = -1;
+              let counter = 0;
+              bar.syllables.forEach((p, pi) => p.forEach((s, si) => {
+                if (pi === pIdx && si === sIdx) curLinearIdx = counter;
+                counter++;
+              }));
+              if (curLinearIdx > 0 && allSylsInBar[curLinearIdx - 1]) prevSyl = allSylsInBar[curLinearIdx - 1].text.trim();
+              if (curLinearIdx + 1 < allSylsInBar.length && allSylsInBar[curLinearIdx + 1]) nextSyl = allSylsInBar[curLinearIdx + 1].text.trim();
+
+              const rKey = RhymeClassifier.extractRhymeKeyWithContext(syl.text.trim(), prevSyl, nextSyl);
+              if (rKey) {
+                cell.style.backgroundColor = this.getVowelColor(rKey);
+              }
             }
 
             // Cell text element
@@ -1488,8 +1690,26 @@
     // =========================================================================
     showCellContextMenu(x, y, b, pIdx, sIdx) {
       const syl = this.tabs[this.activeTabIdx].bars[b].syllables[pIdx][sIdx];
-      const rhymeKey = RhymeClassifier.extractRhymeKey(syl.text);
-      const headerTitle = syl.text ? `Syllable: "${syl.text}" [${rhymeKey}]` : 'Syllable: (empty)';
+
+      // Context for syllable
+      let prevSyl = '', nextSyl = '';
+      const allSylsInBar = [];
+      const bar = this.tabs[this.activeTabIdx].bars[b];
+      bar.syllables.forEach(p => p.forEach(s => allSylsInBar.push(s)));
+      let curLinearIdx = -1;
+      let counter = 0;
+      bar.syllables.forEach((p, pi) => p.forEach((s, si) => {
+        if (pi === pIdx && si === sIdx) curLinearIdx = counter;
+        counter++;
+      }));
+      if (curLinearIdx > 0 && allSylsInBar[curLinearIdx - 1]) prevSyl = allSylsInBar[curLinearIdx - 1].text.trim();
+      if (curLinearIdx + 1 < allSylsInBar.length && allSylsInBar[curLinearIdx + 1]) nextSyl = allSylsInBar[curLinearIdx + 1].text.trim();
+
+      const rhymeKey = RhymeClassifier.extractRhymeKeyWithContext(syl.text, prevSyl, nextSyl);
+      const catEntry = VOWEL_CATALOG.find(v => v.key === rhymeKey);
+      const headerTitle = syl.text 
+        ? (catEntry ? `Syllable: "${syl.text}" [${catEntry.label} - ${catEntry.examples}]` : `Syllable: "${syl.text}" [${rhymeKey}]`)
+        : 'Syllable: (empty)';
 
       this.contextMenu.style.left = `${Math.min(x, window.innerWidth - 220)}px`;
       this.contextMenu.style.top = `${Math.min(y, window.innerHeight - 380)}px`;
@@ -1499,12 +1719,18 @@
         <div class="popup-menu-header">${headerTitle}</div>
         <div class="popup-submenu-container">
           <div class="popup-menu-item">Highlight Color ▶</div>
-          <div class="popup-submenu">
-            <div class="popup-menu-item" id="ctx-col-auto">Auto (Phoneme Rhyme Tint)</div>
+          <div class="popup-submenu" style="max-height: 280px; overflow-y: auto;">
+            <div class="popup-menu-item" id="ctx-col-auto">Auto (Phonemic Vowel Tint)</div>
             <div class="popup-menu-separator"></div>
-            ${PASTEL_SWATCHES.map((sw, idx) => `<div class="popup-menu-item" id="ctx-col-${idx}">${sw.name}</div>`).join('')}
+            ${VOWEL_CATALOG.map((entry, idx) => `
+              <div class="popup-menu-item" id="ctx-vowel-col-${idx}" style="display:flex;align-items:center;gap:8px;">
+                <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background-color:${this.getVowelColor(entry.key)};border:1px solid rgba(0,0,0,0.25);flex-shrink:0;"></span>
+                <span>${entry.label} (${entry.examples})</span>
+              </div>
+            `).join('')}
             <div class="popup-menu-separator"></div>
             <div class="popup-menu-item" id="ctx-col-clear">Clear Highlight (None)</div>
+            <div class="popup-menu-item" id="ctx-vowel-customizer">Customize Vowel Color Scheme...</div>
           </div>
         </div>
         <div class="popup-submenu-container">
@@ -1559,15 +1785,20 @@
         this.contextMenu.style.display = 'none';
         this.renderPage();
       };
-      PASTEL_SWATCHES.forEach((sw, idx) => {
-        const el = document.getElementById(`ctx-col-${idx}`);
+      VOWEL_CATALOG.forEach((entry, idx) => {
+        const el = document.getElementById(`ctx-vowel-col-${idx}`);
         if (el) el.onclick = () => {
             this.pushSnapshot();
-            applyToSelection(s => s.customColor = sw.color);
+            applyToSelection(s => s.customColor = this.getVowelColor(entry.key));
             this.contextMenu.style.display = 'none';
             this.renderPage();
         };
       });
+      const custBtn = document.getElementById('ctx-vowel-customizer');
+      if (custBtn) custBtn.onclick = () => {
+        this.contextMenu.style.display = 'none';
+        this.openVowelPaletteDialog();
+      };
       VIVID_SWATCHES.forEach((hex, idx) => {
         const el = document.getElementById(`ctx-cust-col-${idx}`);
         if (el) el.onclick = () => {
@@ -1713,6 +1944,169 @@
         this.rowAddMenu.style.display = 'none';
         this.renderPage();
       };
+    }
+
+    openVowelPaletteDialog() {
+      if (!this.vowelPaletteDialog) return;
+
+      const colorToHex = (col) => {
+        if (!col) return '#cbd5e1';
+        if (col.startsWith('#')) {
+          if (col.length === 4) return '#' + col[1] + col[1] + col[2] + col[2] + col[3] + col[3];
+          return col.slice(0, 7);
+        }
+        const m = col.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        if (m) {
+          const r = parseInt(m[1], 10).toString(16).padStart(2, '0');
+          const g = parseInt(m[2], 10).toString(16).padStart(2, '0');
+          const b = parseInt(m[3], 10).toString(16).padStart(2, '0');
+          return `#${r}${g}${b}`;
+        }
+        return '#cbd5e1';
+      };
+
+      const hexToRgba = (hex, alpha = 0.65) => {
+        let c = hex.replace('#', '');
+        if (c.length === 3) c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
+        const num = parseInt(c, 16);
+        const r = (num >> 16) & 255;
+        const g = (num >> 8) & 255;
+        const b = num & 255;
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      };
+
+      const renderBody = () => {
+        const bodyEl = document.getElementById('vowel-palette-body');
+        if (!bodyEl) return;
+        bodyEl.innerHTML = VOWEL_CATALOG.map((entry) => {
+          const curCol = this.getVowelColor(entry.key);
+          const hexCol = colorToHex(curCol);
+          return `
+            <div class="vowel-row">
+              <div class="vowel-info">
+                <span class="vowel-label">${entry.label}</span>
+                <span class="vowel-examples">"${entry.examples}"</span>
+              </div>
+              <div class="vowel-swatch-picker">
+                <div class="vowel-swatch-box" id="vowel-swatch-box-${entry.key}" style="background-color: ${curCol};" title="Click to choose color"></div>
+                <input type="color" class="vowel-color-input" id="vowel-picker-${entry.key}" value="${hexCol}">
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        VOWEL_CATALOG.forEach((entry) => {
+          const picker = document.getElementById(`vowel-picker-${entry.key}`);
+          const box = document.getElementById(`vowel-swatch-box-${entry.key}`);
+          if (box && picker) {
+            box.onclick = () => picker.click();
+          }
+          if (picker) {
+            const updateColor = (e) => {
+              const newRgba = hexToRgba(e.target.value, 0.65);
+              if (box) box.style.backgroundColor = newRgba;
+              this.setVowelColor(entry.key, newRgba);
+            };
+            picker.addEventListener('input', updateColor);
+            picker.addEventListener('change', updateColor);
+          }
+        });
+      };
+
+      this.vowelPaletteDialog.className = 'modal-overlay';
+      this.vowelPaletteDialog.style.display = 'flex';
+      this.vowelPaletteDialog.innerHTML = `
+        <div class="modal-content" onclick="event.stopPropagation()">
+          <div class="modal-header">
+            <h3>Customize Vowel Color Scheme</h3>
+            <button class="vst-btn" id="vowel-palette-close-btn" style="font-size:16px;line-height:1;padding:2px 8px;">&times;</button>
+          </div>
+          <div class="modal-body" id="vowel-palette-body"></div>
+          <div class="modal-footer">
+            <button class="vst-btn" id="vowel-palette-reset-btn">Reset to Defaults</button>
+            <button class="vst-btn toggled" id="vowel-palette-done-btn">Done</button>
+          </div>
+        </div>
+      `;
+
+      renderBody();
+
+      this.vowelPaletteDialog.onclick = (e) => {
+        if (e.target === this.vowelPaletteDialog) {
+          this.vowelPaletteDialog.style.display = 'none';
+        }
+      };
+
+      const closeBtn = document.getElementById('vowel-palette-close-btn');
+      if (closeBtn) closeBtn.onclick = () => {
+        this.vowelPaletteDialog.style.display = 'none';
+      };
+
+      const doneBtn = document.getElementById('vowel-palette-done-btn');
+      if (doneBtn) doneBtn.onclick = () => {
+        this.vowelPaletteDialog.style.display = 'none';
+      };
+
+      const resetBtn = document.getElementById('vowel-palette-reset-btn');
+      if (resetBtn) resetBtn.onclick = () => {
+        this.resetVowelColorsToDefaults();
+        renderBody();
+      };
+    }
+
+    updateColorModeButton() {
+      if (!this.rhymeToggleBtn) return;
+      if (this.colorMode === 'rhymes') {
+        this.rhymeToggleBtn.classList.add('toggled');
+        this.rhymeToggleBtn.textContent = 'Rhymes: ON';
+        this.rhymeToggleBtn.title = 'Color Mode: Phonetic Rhymes (Click to cycle, right-click for menu)';
+      } else if (this.colorMode === 'repeats') {
+        this.rhymeToggleBtn.classList.add('toggled');
+        this.rhymeToggleBtn.textContent = 'Repeats: 2+';
+        this.rhymeToggleBtn.title = 'Color Mode: Exact Syllable Repetitions 2+ (Click to cycle, right-click for menu)';
+      } else {
+        this.rhymeToggleBtn.classList.remove('toggled');
+        this.rhymeToggleBtn.textContent = 'Colors: OFF';
+        this.rhymeToggleBtn.title = 'Color Mode: Off (Click to cycle, right-click for menu)';
+      }
+    }
+
+    showColorModeMenu(e) {
+      if (!this.contextMenu) return;
+      const rect = this.rhymeToggleBtn.getBoundingClientRect();
+      const x = e ? e.clientX : rect.left;
+      const y = e ? e.clientY : rect.bottom + 4;
+      this.contextMenu.style.left = `${Math.min(x, window.innerWidth - 240)}px`;
+      this.contextMenu.style.top = `${Math.min(y, window.innerHeight - 200)}px`;
+
+      this.contextMenu.innerHTML = `
+        <div class="popup-menu-header">Highlight Color Mode</div>
+        <div class="popup-menu-item ${this.colorMode === 'rhymes' ? 'active-item' : ''}" id="cm-rhymes">
+          ${this.colorMode === 'rhymes' ? '✓ ' : '&nbsp;&nbsp;'}Phonetic Rhymes (Vowel Sounds)
+        </div>
+        <div class="popup-menu-item ${this.colorMode === 'repeats' ? 'active-item' : ''}" id="cm-repeats">
+          ${this.colorMode === 'repeats' ? '✓ ' : '&nbsp;&nbsp;'}Repetition Detector (2+ Syllables)
+        </div>
+        <div class="popup-menu-separator"></div>
+        <div class="popup-menu-item ${this.colorMode === 'off' ? 'active-item' : ''}" id="cm-off">
+          ${this.colorMode === 'off' ? '✓ ' : '&nbsp;&nbsp;'}Colors Off
+        </div>
+      `;
+      this.contextMenu.style.display = 'block';
+
+      const selectMode = (mode) => {
+        this.colorMode = mode;
+        this.updateColorModeButton();
+        this.renderPage();
+        this.contextMenu.style.display = 'none';
+      };
+
+      const rhymesEl = document.getElementById('cm-rhymes');
+      if (rhymesEl) rhymesEl.onclick = () => selectMode('rhymes');
+      const repeatsEl = document.getElementById('cm-repeats');
+      if (repeatsEl) repeatsEl.onclick = () => selectMode('repeats');
+      const offEl = document.getElementById('cm-off');
+      if (offEl) offEl.onclick = () => selectMode('off');
     }
 
     showPresetMenu(e) {
@@ -1952,6 +2346,9 @@
           newSyllables.push(pulseArr);
         });
         bar.syllables = newSyllables;
+        if (bar.customSpokenCount != null && bar.customSpokenCount > bar.notation.getTotalSyllables()) {
+          bar.customSpokenCount = bar.notation.getTotalSyllables();
+        }
         this.renderPage();
       }
     }

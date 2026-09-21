@@ -380,12 +380,14 @@ void BarLineComponent::editorShown(juce::Label* label, juce::TextEditor& editor)
 {
     if (label == &metricLabel)
     {
-        // Guarantee dark graphite text and clean high-contrast white/cream editor box
-        editor.setColour(juce::TextEditor::textColourId, NotebookLookAndFeel::getGraphiteColour());
-        editor.setColour(juce::TextEditor::backgroundColourId, juce::Colour(0xFFFFFFFF));
+        // High-contrast contrast in both Dark and Light modes (no light-gray on white!)
+        bool dark = NotebookLookAndFeel::isDarkMode();
+        editor.setColour(juce::TextEditor::textColourId, dark ? juce::Colour(0xFFF1F5F9) : juce::Colour(0xFF262626));
+        editor.setColour(juce::TextEditor::backgroundColourId, dark ? juce::Colour(0xFF27272A) : juce::Colour(0xFFFFFFFF));
         editor.setColour(juce::TextEditor::outlineColourId, NotebookLookAndFeel::getPulseBoxBorderColour());
-        editor.setColour(juce::TextEditor::focusedOutlineColourId, NotebookLookAndFeel::getPulseBoxBorderColour());
+        editor.setColour(juce::TextEditor::focusedOutlineColourId, dark ? juce::Colour(0xFFD97706) : NotebookLookAndFeel::getPulseBoxBorderColour());
         editor.setFont(juce::Font(juce::FontOptions("Consolas", 11.5f, juce::Font::bold)));
+        editor.applyColourToAllText(dark ? juce::Colour(0xFFF1F5F9) : juce::Colour(0xFF262626), true);
     }
 }
 

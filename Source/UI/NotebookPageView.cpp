@@ -7,11 +7,23 @@ namespace CompassCadence
 NotebookPageContent::NotebookPageContent(LyricDocument& doc, float marginLineX)
     : document(doc), marginX(marginLineX)
 {
+    barHeight = document.getBarHeight();
     rebuildBars();
 }
 
 NotebookPageContent::~NotebookPageContent()
 {
+}
+
+void NotebookPageContent::setBarHeight(int h)
+{
+    int clamped = std::clamp(h, 32, 100);
+    if (barHeight != clamped)
+    {
+        barHeight = clamped;
+        resized();
+        repaint();
+    }
 }
 
 void NotebookPageContent::rebuildBars()
@@ -263,6 +275,210 @@ void NotebookPageContent::onBarEnterNext(int barIdx)
 }
 
 // -----------------------------------------------------------------------------
+// NotebookVerticalScrollBar
+// -----------------------------------------------------------------------------
+
+NotebookVerticalScrollBar::NotebookVerticalScrollBar()
+    : juce::ScrollBar(true)
+{
+}
+
+NotebookVerticalScrollBar::~NotebookVerticalScrollBar()
+{
+}
+
+juce::Rectangle<int> NotebookVerticalScrollBar::getThumbBounds() const
+{
+    auto rangeLen = getMaximumRangeLimit() - getMinimumRangeLimit();
+    auto viewStart = getCurrentRangeStart() - getMinimumRangeLimit();
+    auto viewLength = getCurrentRange().getLength();
+    int H = getHeight();
+
+    if (rangeLen <= 0.0 || viewLength >= rangeLen || H <= 20)
+        return {};
+
+    auto& lf = getLookAndFeel();
+    int minThumb = lf.getMinimumScrollbarThumbSize(const_cast<NotebookVerticalScrollBar&>(*this));
+    int thumbH = juce::roundToInt((viewLength * H) / rangeLen);
+    thumbH = std::clamp(thumbH, minThumb, H);
+
+    int thumbTop = 0;
+    if (rangeLen > viewLength)
+    {
+        thumbTop = juce::roundToInt((viewStart * (H - thumbH)) / (rangeLen - viewLength));
+    }
+    thumbTop = std::clamp(thumbTop, 0, H - thumbH);
+
+    return { 0, thumbTop, getWidth(), thumbH };
+}
+
+NotebookVerticalScrollBar::ResizeEdge NotebookVerticalScrollBar::getResizeEdgeAt(int mouseY) const
+{
+    auto thumb = getThumbBounds();
+    if (thumb.isEmpty())
+        return ResizeEdge::None;
+
+    int thumbTop = thumb.getY();
+    int thumbBottom = thumb.getBottom();
+    int thumbH = thumb.getHeight();
+
+    int grabZone = std::clamp(thumbH / 4, 3, 7);
+
+    if (std::abs(mouseY - thumbTop) <= grabZone)
+        return ResizeEdge::Top;
+    if (std::abs(mouseY - thumbBottom) <= grabZone)
+        return ResizeEdge::Bottom;
+
+    return ResizeEdge::None;
+}
+
+void NotebookVerticalScrollBar::mouseMove(const juce::MouseEvent& e)
+{
+    if (getResizeEdgeAt(e.y) != ResizeEdge::None)
+    {
+        setMouseCursor(juce::MouseCursor::UpDownResizeCursor);
+    }
+    else
+    {
+        setMouseCursor(juce::MouseCursor::NormalCursor);
+    }
+
+    juce::ScrollBar::mouseMove(e);
+}
+
+void NotebookVerticalScrollBar::mouseExit(const juce::MouseEvent& e)
+{
+    if (!isResizing)
+        setMouseCursor(juce::MouseCursor::NormalCursor);
+
+    juce::ScrollBar::mouseExit(e);
+}
+
+void NotebookVerticalScrollBar::mouseDown(const juce::MouseEvent& e)
+{
+    if (e.mods.isLeftButtonDown())
+    {
+        auto edge = getResizeEdgeAt(e.y);
+        if (edge != ResizeEdge::None)
+        {
+            activeEdge = edge;
+            isResizing = true;
+            dragStartY = (float)e.y;
+
+            if (onResizeStarted)
+                onResizeStarted();
+
+            // CRITICAL: Return immediately without calling juce::ScrollBar::mouseDown(e).
+            // This completely freezes JUCE's internal scrollbar scrolling mechanism!
+            return;
+        }
+    }
+
+    activeEdge = ResizeEdge::None;
+    isResizing = false;
+    juce::ScrollBar::mouseDown(e);
+}
+
+void NotebookVerticalScrollBar::mouseDrag(const juce::MouseEvent& e)
+{
+    if (isResizing)
+    {
+        float deltaY = (float)e.y - dragStartY;
+        if (onResizeDragged)
+            onResizeDragged(activeEdge, deltaY);
+
+        // CRITICAL: Return immediately without calling juce::ScrollBar::mouseDrag(e).
+        // This keeps the scrollbar frozen vertically while resizing row heights!
+        return;
+    }
+
+    juce::ScrollBar::mouseDrag(e);
+}
+
+void NotebookVerticalScrollBar::mouseUp(const juce::MouseEvent& e)
+{
+    if (isResizing)
+    {
+        isResizing = false;
+        activeEdge = ResizeEdge::None;
+        setMouseCursor(juce::MouseCursor::NormalCursor);
+
+        if (onResizeEnded)
+            onResizeEnded();
+
+        return;
+    }
+
+    juce::ScrollBar::mouseUp(e);
+}
+
+void NotebookVerticalScrollBar::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
+{
+    if (e.mods.isCtrlDown() || e.mods.isAltDown() || e.mods.isCommandDown())
+    {
+        if (onZoomWheel)
+            onZoomWheel(wheel.deltaY > 0 ? 4 : -4);
+        return;
+    }
+
+    juce::ScrollBar::mouseWheelMove(e, wheel);
+}
+
+void NotebookVerticalScrollBar::paint(juce::Graphics& g)
+{
+    juce::ScrollBar::paint(g);
+
+    // Subtle DAW-style resize grip indicators on top & bottom thumb edges
+    auto thumb = getThumbBounds();
+    if (!thumb.isEmpty() && thumb.getHeight() >= 24)
+    {
+        g.setColour(juce::Colour(0x50000000));
+        int cx = thumb.getCentreX();
+        // Top grip bar
+        g.fillRect(cx - 3, thumb.getY() + 3, 6, 1);
+        // Bottom grip bar
+        g.fillRect(cx - 3, thumb.getBottom() - 4, 6, 1);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// NotebookViewport
+// -----------------------------------------------------------------------------
+
+NotebookViewport::NotebookViewport()
+{
+    recreateScrollbars();
+}
+
+NotebookViewport::~NotebookViewport()
+{
+}
+
+juce::ScrollBar* NotebookViewport::createScrollBarComponent(bool isVertical)
+{
+    if (isVertical)
+        return new NotebookVerticalScrollBar();
+
+    return juce::Viewport::createScrollBarComponent(false);
+}
+
+void NotebookViewport::scrollBarMoved(juce::ScrollBar* sb, double newRangeStart)
+{
+    // If scroll is frozen during resizing, ignore all scroll movement requests
+    if (scrollFrozen)
+        return;
+
+    juce::Viewport::scrollBarMoved(sb, newRangeStart);
+}
+
+void NotebookViewport::visibleAreaChanged(const juce::Rectangle<int>& newVisibleArea)
+{
+    juce::Viewport::visibleAreaChanged(newVisibleArea);
+    if (onVisibleAreaChanged)
+        onVisibleAreaChanged();
+}
+
+// -----------------------------------------------------------------------------
 // NotebookPageView
 // -----------------------------------------------------------------------------
 
@@ -274,10 +490,21 @@ NotebookPageView::NotebookPageView(CompassCadenceAudioProcessor& proc, LyricDocu
     pageContent = std::make_unique<NotebookPageContent>(*document, MARGIN_X);
     viewport.setViewedComponent(pageContent.get(), false);
     viewport.setScrollBarsShown(true, false); // Vertical scroll only
-    viewport.setScrollBarThickness(10);
+    viewport.setScrollBarThickness(14);
     viewport.onVisibleAreaChanged = [this] {
         checkInfiniteScroll();
     };
+
+    if (auto* vsb = dynamic_cast<NotebookVerticalScrollBar*>(&viewport.getVerticalScrollBar()))
+    {
+        vsb->onResizeStarted = [this] { handleResizeStarted(); };
+        vsb->onResizeDragged = [this] (NotebookVerticalScrollBar::ResizeEdge edge, float deltaY) {
+            handleResizeDragged(edge, deltaY);
+        };
+        vsb->onResizeEnded   = [this] { handleResizeEnded(); };
+        vsb->onZoomWheel     = [this] (int delta) { handleZoomWheel(delta); };
+    }
+
     addAndMakeVisible(viewport);
 }
 
@@ -301,8 +528,135 @@ void NotebookPageView::setDocument(LyricDocument& newDoc)
 
     pageContent = std::make_unique<NotebookPageContent>(*document, MARGIN_X);
     viewport.setViewedComponent(pageContent.get(), false);
+
     resized();
     repaint();
+}
+
+void NotebookPageView::handleResizeStarted()
+{
+    viewport.setScrollFrozen(true);
+    resizeStartBarHeight = document ? document->getBarHeight() : 50;
+
+    resizeAnchorBarTop = 0;
+    resizeAnchorOffsetTop = 0;
+    resizeAnchorBarBottom = 0;
+    resizeAnchorOffsetBottom = 0;
+
+    if (pageContent != nullptr && document != nullptr)
+    {
+        int curY = viewport.getViewPositionY();
+        int curBottomY = curY + viewport.getHeight();
+        int startB = document->getVisibleStartBar();
+        int endB = document->getVisibleEndBar();
+
+        for (int b = startB; b < endB; ++b)
+        {
+            int bY = pageContent->getBarY(b);
+            if (bY <= curY)
+            {
+                resizeAnchorBarTop = b;
+                resizeAnchorOffsetTop = curY - bY;
+            }
+            if (bY <= curBottomY)
+            {
+                resizeAnchorBarBottom = b;
+                resizeAnchorOffsetBottom = curBottomY - bY;
+            }
+        }
+    }
+}
+
+void NotebookPageView::handleResizeDragged(NotebookVerticalScrollBar::ResizeEdge edge, float deltaY)
+{
+    if (document == nullptr || pageContent == nullptr)
+        return;
+
+    float scale = 0.35f;
+    int newHeight = resizeStartBarHeight;
+
+    if (edge == NotebookVerticalScrollBar::ResizeEdge::Bottom)
+    {
+        // Dragging thumb bottom down expands thumb -> decreases content row height
+        // Dragging thumb bottom up shrinks thumb -> increases content row height
+        newHeight = resizeStartBarHeight - juce::roundToInt(deltaY * scale);
+    }
+    else if (edge == NotebookVerticalScrollBar::ResizeEdge::Top)
+    {
+        // Dragging thumb top up expands thumb -> decreases content row height
+        // Dragging thumb top down shrinks thumb -> increases content row height
+        newHeight = resizeStartBarHeight + juce::roundToInt(deltaY * scale);
+    }
+
+    newHeight = std::clamp(newHeight, 32, 100);
+
+    if (document->getBarHeight() != newHeight)
+    {
+        document->setBarHeight(newHeight);
+        pageContent->setBarHeight(newHeight);
+
+        // Re-anchor the visible position so the content and the scrollbar remain frozen vertically!
+        int newY = 0;
+        int maxScroll = std::max(0, pageContent->getHeight() - viewport.getHeight());
+
+        if (edge == NotebookVerticalScrollBar::ResizeEdge::Bottom)
+        {
+            // Pinned to top visible bar
+            newY = pageContent->getBarY(resizeAnchorBarTop) + resizeAnchorOffsetTop;
+        }
+        else
+        {
+            // Pinned to bottom visible bar
+            int newBottomY = pageContent->getBarY(resizeAnchorBarBottom) + resizeAnchorOffsetBottom;
+            newY = newBottomY - viewport.getHeight();
+        }
+
+        newY = std::clamp(newY, 0, maxScroll);
+        viewport.setViewPosition(0, newY);
+    }
+}
+
+void NotebookPageView::handleResizeEnded()
+{
+    viewport.setScrollFrozen(false);
+}
+
+void NotebookPageView::handleZoomWheel(int delta)
+{
+    if (document == nullptr || pageContent == nullptr)
+        return;
+
+    int curH = document->getBarHeight();
+    int newH = std::clamp(curH + delta, 32, 100);
+    if (curH != newH)
+    {
+        viewport.setScrollFrozen(true);
+
+        int curY = viewport.getViewPositionY();
+        int anchorB = 0;
+        int anchorOff = 0;
+        int startB = document->getVisibleStartBar();
+        int endB = document->getVisibleEndBar();
+        for (int b = startB; b < endB; ++b)
+        {
+            int bY = pageContent->getBarY(b);
+            if (bY <= curY)
+            {
+                anchorB = b;
+                anchorOff = curY - bY;
+            }
+            else break;
+        }
+
+        document->setBarHeight(newH);
+        pageContent->setBarHeight(newH);
+
+        int newY = pageContent->getBarY(anchorB) + anchorOff;
+        int maxScroll = std::max(0, pageContent->getHeight() - viewport.getHeight());
+        viewport.setViewPosition(0, std::clamp(newY, 0, maxScroll));
+
+        viewport.setScrollFrozen(false);
+    }
 }
 
 void NotebookPageView::updatePlayhead(const PlayheadLocation& loc, bool isPlaying, bool followDAW)
@@ -384,6 +738,9 @@ void NotebookPageView::scrollByBars(int numBars)
 
 void NotebookPageView::checkInfiniteScroll()
 {
+    if (viewport.isScrollFrozen())
+        return;
+
     if (pageContent == nullptr || document == nullptr || document->getViewMode() != LyricDocument::ModeScroll)
         return;
 
@@ -511,6 +868,16 @@ bool NotebookPageView::keyPressed(const juce::KeyPress& key)
     return false;
 }
 
+void NotebookPageView::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
+{
+    if (e.mods.isCtrlDown() || e.mods.isAltDown() || e.mods.isCommandDown())
+    {
+        handleZoomWheel(wheel.deltaY > 0 ? 4 : -4);
+        return;
+    }
+    Component::mouseWheelMove(e, wheel);
+}
+
 void NotebookPageView::lyricDocumentChanged()
 {
     if (document == nullptr)
@@ -518,6 +885,9 @@ void NotebookPageView::lyricDocumentChanged()
 
     if (pageContent != nullptr)
     {
+        if (pageContent->getBarHeight() != document->getBarHeight())
+            pageContent->setBarHeight(document->getBarHeight());
+
         int startBar = document->getVisibleStartBar();
         int endBar = document->getVisibleEndBar();
         int expectedCount = endBar - startBar;

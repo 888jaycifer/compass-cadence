@@ -3,9 +3,25 @@
 namespace CompassCadence
 {
 
+static NotebookLookAndFeel* gActiveNotebookLookAndFeel = nullptr;
+
 NotebookLookAndFeel::NotebookLookAndFeel()
 {
+    gActiveNotebookLookAndFeel = this;
     updateColours();
+}
+
+NotebookLookAndFeel::~NotebookLookAndFeel()
+{
+    if (gActiveNotebookLookAndFeel == this)
+        gActiveNotebookLookAndFeel = nullptr;
+}
+
+void NotebookLookAndFeel::setDarkMode(bool dark) noexcept
+{
+    darkMode = dark;
+    if (gActiveNotebookLookAndFeel != nullptr)
+        gActiveNotebookLookAndFeel->updateColours();
 }
 
 void NotebookLookAndFeel::updateColours()
@@ -15,12 +31,12 @@ void NotebookLookAndFeel::updateColours()
     setColour(juce::Label::textWhenEditingColourId, getGraphiteColour());
     setColour(juce::Label::backgroundColourId, juce::Colours::transparentBlack);
 
-    setColour(juce::TextEditor::backgroundColourId, juce::Colours::transparentBlack);
+    setColour(juce::TextEditor::backgroundColourId, isDarkMode() ? juce::Colour(0xFF27272A) : juce::Colour(0xFFFFFFFF));
     setColour(juce::TextEditor::textColourId, getGraphiteColour());
     setColour(juce::TextEditor::highlightColourId, isDarkMode() ? juce::Colour(0x603B82F6) : juce::Colour(0x60FFF59D));
     setColour(juce::TextEditor::highlightedTextColourId, getGraphiteColour());
-    setColour(juce::TextEditor::outlineColourId, juce::Colours::transparentBlack);
-    setColour(juce::TextEditor::focusedOutlineColourId, juce::Colours::transparentBlack);
+    setColour(juce::TextEditor::outlineColourId, isDarkMode() ? juce::Colour(0xFF52525B) : juce::Colour(0xFFCBD5E1));
+    setColour(juce::TextEditor::focusedOutlineColourId, isDarkMode() ? juce::Colour(0xFFF59E0B) : juce::Colour(0xFFD97706));
 
     setColour(juce::ComboBox::backgroundColourId, isDarkMode() ? juce::Colour(0xFF27272A) : juce::Colour(0xFFF3EFE6));
     setColour(juce::ComboBox::textColourId, getGraphiteColour());
@@ -122,6 +138,29 @@ void NotebookLookAndFeel::drawScrollbar(juce::Graphics& g, juce::ScrollBar& scro
 
     g.setColour(thumbCol);
     g.fillRoundedRectangle(thumbBounds, 3.0f);
+
+    if (isScrollbarVertical && thumbSize >= 22)
+    {
+        // Top and bottom DAW-style thumb resize indicators
+        float ribW = std::clamp(thumbBounds.getWidth() * 0.60f, 4.0f, 10.0f);
+        float ribX = thumbBounds.getCentreX() - (ribW * 0.5f);
+        juce::Colour ribCol = isMouseDown || isMouseOver
+            ? (darkMode ? juce::Colour(0xFFF59E0B) : juce::Colour(0xFFD97706))
+            : (darkMode ? juce::Colour(0x80F1F5F9) : juce::Colour(0x60000000));
+        g.setColour(ribCol);
+
+        // Top edge ribs
+        float topY1 = (float)thumbStartPosition + 3.5f;
+        float topY2 = (float)thumbStartPosition + 5.5f;
+        g.drawLine(ribX, topY1, ribX + ribW, topY1, 1.0f);
+        g.drawLine(ribX, topY2, ribX + ribW, topY2, 1.0f);
+
+        // Bottom edge ribs
+        float botY1 = (float)thumbStartPosition + (float)thumbSize - 6.5f;
+        float botY2 = (float)thumbStartPosition + (float)thumbSize - 4.5f;
+        g.drawLine(ribX, botY1, ribX + ribW, botY1, 1.0f);
+        g.drawLine(ribX, botY2, ribX + ribW, botY2, 1.0f);
+    }
 }
 
 void NotebookLookAndFeel::drawComboBox(juce::Graphics& g, int width, int height, bool isButtonDown,

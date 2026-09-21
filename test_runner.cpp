@@ -97,7 +97,7 @@ int main(int argc, char* argv[])
         jassert(key1.isEmpty()); // Non-terminal hyphenated stem must not rhyme
         juce::String keyNight = CompassCadence::RhymeClassifier::extractRhymeKey("night");
         juce::String keyRight = CompassCadence::RhymeClassifier::extractRhymeKey("right");
-        jassert(keyNight == "AY_T" && keyRight == "AY_T");
+        jassert(keyNight == "AY" && keyRight == "AY");
         std::cout << "  [10.4] Rhyme Classifier determinism passed!" << std::endl;
 
         // Test Per-Bar Metric Notation & Mixed Polymeter
@@ -480,7 +480,7 @@ int main(int argc, char* argv[])
         // Perfect rhymes must match
         jassert(keyTo == "UW" && keyYou == "UW");
         jassert(keyNo == "OW" && keySo == "OW");
-        jassert(keySet == "EH_T" && keyLet == "EH_T");
+        jassert(keySet == "EH" && keyLet == "EH");
         jassert(keyExec == keyDirect);
 
         // Non-rhyming words must NOT match
@@ -795,7 +795,151 @@ int main(int argc, char* argv[])
             std::cout << "  [10.24] Syllable right-click utilities (custom color, case transforms, duplicate) passed!" << std::endl;
         }
 
-        editor.reset();
+        // [10.25] Bar Height, Meter Truncation, Context Vowels, and Vowel Palette Customization
+        {
+            CompassCadence::LyricDocument docNew;
+
+            // 1. Default bar height is 50px, clamped [32, 100], with Undo/Redo & ValueTree
+            jassert(docNew.getBarHeight() == 50);
+            docNew.setBarHeight(64);
+            jassert(docNew.getBarHeight() == 64);
+            docNew.setBarHeight(20); // Clamps to 32
+            jassert(docNew.getBarHeight() == 32);
+            docNew.setBarHeight(150); // Clamps to 100
+            jassert(docNew.getBarHeight() == 100);
+            docNew.undo();
+            jassert(docNew.getBarHeight() == 32);
+            docNew.redo();
+            jassert(docNew.getBarHeight() == 100);
+
+            auto vtHeight = docNew.toValueTree();
+            CompassCadence::LyricDocument docHeightRestored;
+            docHeightRestored.fromValueTree(vtHeight);
+            jassert(docHeightRestored.getBarHeight() == 100);
+
+            // 2. Meter Truncation: shrinking subdivisions permanently removes orphaned syllables
+            docNew.clearAll();
+            docNew.setSyllable(2, 14, "GhostSyl");
+            docNew.setCellBold(2, 14, true);
+            docNew.setCellAlignment(2, 14, CompassCadence::LyricDocument::AlignRight);
+            docNew.setCustomCellColor(2, 14, juce::Colours::red);
+            docNew.setActualSpokenSyllableCount(2, 15);
+
+            // Shrink bar 2 to 8 syllables
+            auto halfNotation = CompassCadence::MetricNotation::fromNotationString("[2222]/4:4");
+            docNew.setBarNotation(2, halfNotation);
+            jassert(docNew.getNotation(2).getTotalSyllables() == 8);
+            jassert(docNew.getSyllable(2, 14).isEmpty()); // Beyond range 8
+            jassert(!docNew.isCellBold(2, 14));
+            jassert(docNew.getActualSpokenSyllableCount(2) <= 8); // Clamped to new max
+
+            // 3. Context-aware vowel sound classification
+            // Standalone "a" is long Ay (EY)
+            juce::String isolatedA = CompassCadence::RhymeClassifier::extractRhymeKeyWithContext("a", "", "");
+            jassert(isolatedA == "EY");
+            // Stem "a" in "un-der-stand-a-ble" is unstressed schwa / short Uh (AH)
+            juce::String contextA = CompassCadence::RhymeClassifier::extractRhymeKeyWithContext("a", "stand-", "-ble");
+            jassert(contextA == "AH");
+
+            // 4. Customizable Vowel Sound Color Palette & ValueTree persistence
+            juce::Colour customColor(0xFF8844AA);
+            docNew.setVowelSoundColor("EY", customColor);
+            jassert(docNew.getVowelSoundColor("EY") == customColor);
+
+            auto vtColors = docNew.toValueTree();
+            CompassCadence::LyricDocument docColorsRestored;
+            docColorsRestored.fromValueTree(vtColors);
+            jassert(docColorsRestored.getVowelSoundColor("EY") == customColor);
+
+            docNew.resetVowelSoundColorsToDefaults();
+            jassert(docNew.getVowelSoundColor("EY") != customColor);
+
+            // 5. Phonetic distinction: "I" vs "it" (long Eye [AY] vs short Ih [IH])
+            juce::String keyI = CompassCadence::RhymeClassifier::extractRhymeKey("i");
+            juce::String keyIt = CompassCadence::RhymeClassifier::extractRhymeKey("it");
+            juce::String keyIm = CompassCadence::RhymeClassifier::extractRhymeKey("I'm");
+            juce::String keyHit = CompassCadence::RhymeClassifier::extractRhymeKey("hit");
+            juce::String keyMy = CompassCadence::RhymeClassifier::extractRhymeKey("my");
+
+            jassert(keyI == "AY");
+            jassert(keyIt == "IH");
+            jassert(keyI != keyIt); // "i" does NOT rhyme with "it"!
+            jassert(keyIm == "AY");
+            jassert(keyHit == "IH");
+            jassert(keyI == keyMy); // "i" rhymes with "my"!
+
+            std::cout << "  [10.25] Bar Height, Meter Truncation, Context Vowels, and Palette Customization passed!" << std::endl;
+        }
+
+        // [10.26] 3-Mode Rhyme Toggle & Syllable Repetition Detector (2+ Syllables)
+        {
+            CompassCadence::LyricDocument docRep;
+
+            // 1. ColorMode cycling: Rhymes -> Repeats -> Off -> Rhymes
+            jassert(docRep.getColorMode() == CompassCadence::RhymeClassifier::ColorMode::Rhymes);
+            docRep.cycleColorMode();
+            jassert(docRep.getColorMode() == CompassCadence::RhymeClassifier::ColorMode::Repeats);
+            docRep.cycleColorMode();
+            jassert(docRep.getColorMode() == CompassCadence::RhymeClassifier::ColorMode::Off);
+            docRep.cycleColorMode();
+            jassert(docRep.getColorMode() == CompassCadence::RhymeClassifier::ColorMode::Rhymes);
+
+            // 2. Set up lyric text with a repeated 3-syllable sequence and an isolated repeated 1-syllable word
+            docRep.clearAll();
+            docRep.setSyllable(0, 0, "in");
+            docRep.setSyllable(0, 1, "the");
+            docRep.setSyllable(0, 2, "club");
+
+            docRep.setSyllable(1, 0, "danc-");
+            docRep.setSyllable(1, 1, "-ing");
+            docRep.setSyllable(1, 2, "slow");
+
+            docRep.setSyllable(2, 0, "in");
+            docRep.setSyllable(2, 1, "the");
+            docRep.setSyllable(2, 2, "club");
+
+            docRep.setSyllable(3, 0, "the"); // Isolated 1-syllable word that appears elsewhere
+
+            docRep.setColorMode(CompassCadence::RhymeClassifier::ColorMode::Repeats);
+            docRep.refreshRhymes();
+
+            auto& classifier = docRep.getRhymeClassifier();
+
+            // Repeating phrase "in the club" (length 3 >= 2) must receive matching highlight color
+            juce::Colour c0_0 = classifier.getHighlightForCell(0, 0, "in");
+            juce::Colour c0_1 = classifier.getHighlightForCell(0, 1, "the");
+            juce::Colour c0_2 = classifier.getHighlightForCell(0, 2, "club");
+            juce::Colour c2_0 = classifier.getHighlightForCell(2, 0, "in");
+            juce::Colour c2_1 = classifier.getHighlightForCell(2, 1, "the");
+            juce::Colour c2_2 = classifier.getHighlightForCell(2, 2, "club");
+
+            jassert(!c0_0.isTransparent());
+            jassert(!c2_0.isTransparent());
+            jassert(c0_0 == c2_0);
+            jassert(c0_1 == c2_1);
+            jassert(c0_2 == c2_2);
+
+            // Non-repeated phrase in Bar 1 must remain unhighlighted
+            juce::Colour c1_0 = classifier.getHighlightForCell(1, 0, "danc-");
+            jassert(c1_0.isTransparent());
+
+            // Single isolated repetition in Bar 3 must NOT be highlighted (requires length >= 2)
+            juce::Colour c3_0 = classifier.getHighlightForCell(3, 0, "the");
+            jassert(c3_0.isTransparent());
+
+            // 3. In Off mode, all highlights are transparent
+            docRep.setColorMode(CompassCadence::RhymeClassifier::ColorMode::Off);
+            jassert(classifier.getHighlightForCell(0, 0, "in").isTransparent());
+
+            // 4. ValueTree state persistence of colorMode
+            docRep.setColorMode(CompassCadence::RhymeClassifier::ColorMode::Repeats);
+            auto vtRep = docRep.toValueTree();
+            CompassCadence::LyricDocument docRepRestored;
+            docRepRestored.fromValueTree(vtRep);
+            jassert(docRepRestored.getColorMode() == CompassCadence::RhymeClassifier::ColorMode::Repeats);
+
+            std::cout << "  [10.26] 3-Mode Rhyme Toggle & Syllable Repetition Detector (2+ Syllables) passed!" << std::endl;
+        }
         proc.reset();
         std::cout << "[11] Clean teardown succeeded!" << std::endl;
     }

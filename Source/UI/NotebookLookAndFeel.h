@@ -9,11 +9,11 @@ class NotebookLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
     NotebookLookAndFeel();
-    ~NotebookLookAndFeel() override = default;
+    ~NotebookLookAndFeel() override;
 
     // Custom notebook colors
     static bool isDarkMode() noexcept { return darkMode; }
-    static void setDarkMode(bool dark) noexcept { darkMode = dark; }
+    static void setDarkMode(bool dark) noexcept;
 
     static juce::Colour getPaperColour() noexcept
     {

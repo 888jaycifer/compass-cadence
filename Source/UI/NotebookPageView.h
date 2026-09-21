@@ -6,6 +6,7 @@
 #include "../PluginProcessor.h"
 #include <vector>
 #include <memory>
+#include <functional>
 
 namespace CompassCadence
 {
@@ -29,6 +30,7 @@ public:
 
     int getBarY(int barIndex) const;
     int getBarHeight() const noexcept { return barHeight; }
+    void setBarHeight(int h);
     int getDisplayedStartBar() const noexcept { return barLines.empty() ? -1 : barLines.front()->getBarIndex(); }
     int getDisplayedBarCount() const noexcept { return (int)barLines.size(); }
 
@@ -40,7 +42,7 @@ public:
 private:
     LyricDocument& document;
     float marginX;
-    int barHeight = 36;
+    int barHeight = 50;
     int blankLineGap = 20;
 
     std::vector<std::unique_ptr<BarLineComponent>> barLines;
@@ -50,17 +52,60 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NotebookPageContent)
 };
 
+class NotebookVerticalScrollBar : public juce::ScrollBar
+{
+public:
+    enum class ResizeEdge { None, Top, Bottom };
+
+    NotebookVerticalScrollBar();
+    ~NotebookVerticalScrollBar() override;
+
+    std::function<void()> onResizeStarted;
+    std::function<void(ResizeEdge, float)> onResizeDragged;
+    std::function<void()> onResizeEnded;
+    std::function<void(int)> onZoomWheel;
+
+    void mouseMove(const juce::MouseEvent& e) override;
+    void mouseExit(const juce::MouseEvent& e) override;
+    void mouseDown(const juce::MouseEvent& e) override;
+    void mouseDrag(const juce::MouseEvent& e) override;
+    void mouseUp(const juce::MouseEvent& e) override;
+    void mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override;
+    void paint(juce::Graphics& g) override;
+
+    juce::Rectangle<int> getThumbBounds() const;
+    ResizeEdge getResizeEdgeAt(int mouseY) const;
+    bool isResizingActive() const noexcept { return isResizing; }
+
+private:
+    bool isResizing = false;
+    ResizeEdge activeEdge = ResizeEdge::None;
+    float dragStartY = 0.0f;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NotebookVerticalScrollBar)
+};
+
 class NotebookViewport : public juce::Viewport
 {
 public:
+    NotebookViewport();
+    ~NotebookViewport() override;
+
     std::function<void()> onVisibleAreaChanged;
 
-    void visibleAreaChanged(const juce::Rectangle<int>& newVisibleArea) override
-    {
-        juce::Viewport::visibleAreaChanged(newVisibleArea);
-        if (onVisibleAreaChanged)
-            onVisibleAreaChanged();
-    }
+    void setScrollFrozen(bool frozen) noexcept { scrollFrozen = frozen; }
+    bool isScrollFrozen() const noexcept { return scrollFrozen; }
+
+    void scrollBarMoved(juce::ScrollBar* sb, double newRangeStart) override;
+    void visibleAreaChanged(const juce::Rectangle<int>& newVisibleArea) override;
+
+protected:
+    juce::ScrollBar* createScrollBarComponent(bool isVertical) override;
+
+private:
+    bool scrollFrozen = false;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NotebookViewport)
 };
 
 class NotebookPageView : public juce::Component,
@@ -81,6 +126,7 @@ public:
     void paint(juce::Graphics& g) override;
     void resized() override;
     bool keyPressed(const juce::KeyPress& key) override;
+    void mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override;
 
     // LyricDocument::Listener
     void lyricDocumentChanged() override;
@@ -89,6 +135,11 @@ public:
     void selectionChanged() override;
 
 private:
+    void handleResizeStarted();
+    void handleResizeDragged(NotebookVerticalScrollBar::ResizeEdge edge, float deltaY);
+    void handleResizeEnded();
+    void handleZoomWheel(int delta);
+
     CompassCadenceAudioProcessor& processor;
     LyricDocument* document = nullptr;
 
@@ -96,6 +147,12 @@ private:
 
     std::unique_ptr<NotebookPageContent> pageContent;
     NotebookViewport viewport;
+
+    int resizeStartBarHeight = 50;
+    int resizeAnchorBarTop = 0;
+    int resizeAnchorOffsetTop = 0;
+    int resizeAnchorBarBottom = 0;
+    int resizeAnchorOffsetBottom = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NotebookPageView)
 };

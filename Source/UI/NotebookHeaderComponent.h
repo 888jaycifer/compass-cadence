@@ -40,6 +40,7 @@ public:
     void resized() override;
 
     // Listeners
+    void textEditorTextChanged(juce::TextEditor& editor) override;
     void textEditorReturnKeyPressed(juce::TextEditor& editor) override;
     void textEditorFocusLost(juce::TextEditor& editor) override;
     void comboBoxChanged(juce::ComboBox* comboBoxThatHasChanged) override;
@@ -49,8 +50,14 @@ public:
     void metricNotationChanged(const MetricNotation& newNotation) override;
 
 private:
+    void updateEditorColours();
+    void updateRhymeButtonDisplay();
+    void showColorModeMenu();
     void applyNotationFromText();
     void applyPreset(int presetId);
+
+    class RhymeButtonListener;
+    std::unique_ptr<RhymeButtonListener> rhymeButtonListener;
 
     CompassCadenceAudioProcessor& processor;
     LyricDocument* document = nullptr;
@@ -73,6 +80,7 @@ private:
 
     // Toggles
     juce::TextButton rhymeToggleBtn { "Rhymes: ON" };
+    juce::TextButton rhymeColorsBtn { "Pal" };
     juce::TextButton followToggleBtn { "Follow DAW: ON" };
     juce::TextButton copyBtn { "Copy" };
     juce::TextButton exportBtn { "Export" };

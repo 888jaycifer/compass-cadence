@@ -26,6 +26,46 @@ void LyricDocument::setNotation(const MetricNotation& newNotation)
     {
         pushUndoSnapshot();
         defaultNotation = newNotation;
+        int newTotal = defaultNotation.getTotalSyllables();
+
+        for (auto& pair : barData)
+        {
+            int b = pair.first;
+            if (!hasBarNotationOverride(b))
+            {
+                if ((int)pair.second.size() > newTotal)
+                    pair.second.resize(newTotal);
+
+                for (auto bit = boldCells.begin(); bit != boldCells.end(); )
+                {
+                    if (bit->first == b && bit->second >= newTotal)
+                        bit = boldCells.erase(bit);
+                    else
+                        ++bit;
+                }
+                for (auto ait = cellAlignments.begin(); ait != cellAlignments.end(); )
+                {
+                    if (ait->first.first == b && ait->first.second >= newTotal)
+                        ait = cellAlignments.erase(ait);
+                    else
+                        ++ait;
+                }
+                for (auto cit = customCellColors.begin(); cit != customCellColors.end(); )
+                {
+                    if (cit->first.first == b && cit->first.second >= newTotal)
+                        cit = customCellColors.erase(cit);
+                    else
+                        ++cit;
+                }
+                auto spIt = customSpokenSyllableCounts.find(b);
+                if (spIt != customSpokenSyllableCounts.end() && spIt->second > newTotal)
+                {
+                    spIt->second = newTotal;
+                }
+            }
+        }
+
+        refreshRhymes();
         notifyNotationChanged();
         notifyChanged();
     }
@@ -44,6 +84,41 @@ void LyricDocument::setBarNotation(int barIndex, const MetricNotation& newNotati
     barNotations[barIndex] = newNotation;
     ensureBarCount(barIndex + 1);
 
+    // Truncate any syllables that extend past the new division count
+    int newTotal = newNotation.getTotalSyllables();
+    auto dataIt = barData.find(barIndex);
+    if (dataIt != barData.end() && (int)dataIt->second.size() > newTotal)
+    {
+        dataIt->second.resize(newTotal);
+    }
+    for (auto bit = boldCells.begin(); bit != boldCells.end(); )
+    {
+        if (bit->first == barIndex && bit->second >= newTotal)
+            bit = boldCells.erase(bit);
+        else
+            ++bit;
+    }
+    for (auto ait = cellAlignments.begin(); ait != cellAlignments.end(); )
+    {
+        if (ait->first.first == barIndex && ait->first.second >= newTotal)
+            ait = cellAlignments.erase(ait);
+        else
+            ++ait;
+    }
+    for (auto cit = customCellColors.begin(); cit != customCellColors.end(); )
+    {
+        if (cit->first.first == barIndex && cit->first.second >= newTotal)
+            cit = customCellColors.erase(cit);
+        else
+            ++cit;
+    }
+    auto spIt = customSpokenSyllableCounts.find(barIndex);
+    if (spIt != customSpokenSyllableCounts.end() && spIt->second > newTotal)
+    {
+        spIt->second = newTotal;
+    }
+
+    refreshRhymes();
     notifyBarNotationChanged(barIndex);
     notifyChanged();
 }
@@ -55,6 +130,41 @@ void LyricDocument::clearBarNotation(int barIndex)
     {
         pushUndoSnapshot();
         barNotations.erase(it);
+
+        int newTotal = defaultNotation.getTotalSyllables();
+        auto dataIt = barData.find(barIndex);
+        if (dataIt != barData.end() && (int)dataIt->second.size() > newTotal)
+        {
+            dataIt->second.resize(newTotal);
+        }
+        for (auto bit = boldCells.begin(); bit != boldCells.end(); )
+        {
+            if (bit->first == barIndex && bit->second >= newTotal)
+                bit = boldCells.erase(bit);
+            else
+                ++bit;
+        }
+        for (auto ait = cellAlignments.begin(); ait != cellAlignments.end(); )
+        {
+            if (ait->first.first == barIndex && ait->first.second >= newTotal)
+                ait = cellAlignments.erase(ait);
+            else
+                ++ait;
+        }
+        for (auto cit = customCellColors.begin(); cit != customCellColors.end(); )
+        {
+            if (cit->first.first == barIndex && cit->first.second >= newTotal)
+                cit = customCellColors.erase(cit);
+            else
+                ++cit;
+        }
+        auto spIt = customSpokenSyllableCounts.find(barIndex);
+        if (spIt != customSpokenSyllableCounts.end() && spIt->second > newTotal)
+        {
+            spIt->second = newTotal;
+        }
+
+        refreshRhymes();
         notifyBarNotationChanged(barIndex);
         notifyChanged();
     }
@@ -274,6 +384,7 @@ void LyricDocument::pushUndoSnapshot()
     snap.customCellColors = customCellColors;
     snap.customSpokenSyllableCounts = customSpokenSyllableCounts;
     snap.totalBars = totalBars;
+    snap.barHeight = barHeight;
     snap.viewMode = viewMode;
     snap.darkMode = darkMode;
     snap.customStanzaBreaksActive = customStanzaBreaksActive;
@@ -300,6 +411,7 @@ void LyricDocument::undo()
     current.customCellColors = customCellColors;
     current.customSpokenSyllableCounts = customSpokenSyllableCounts;
     current.totalBars = totalBars;
+    current.barHeight = barHeight;
     current.viewMode = viewMode;
     current.darkMode = darkMode;
     current.customStanzaBreaksActive = customStanzaBreaksActive;
@@ -315,6 +427,7 @@ void LyricDocument::undo()
     customCellColors = std::move(prev.customCellColors);
     customSpokenSyllableCounts = std::move(prev.customSpokenSyllableCounts);
     totalBars = prev.totalBars;
+    barHeight = prev.barHeight;
     viewMode = prev.viewMode;
     darkMode = prev.darkMode;
     customStanzaBreaksActive = prev.customStanzaBreaksActive;
@@ -344,6 +457,7 @@ void LyricDocument::redo()
     current.customCellColors = customCellColors;
     current.customSpokenSyllableCounts = customSpokenSyllableCounts;
     current.totalBars = totalBars;
+    current.barHeight = barHeight;
     current.viewMode = viewMode;
     current.darkMode = darkMode;
     current.customStanzaBreaksActive = customStanzaBreaksActive;
@@ -359,6 +473,7 @@ void LyricDocument::redo()
     customCellColors = std::move(next.customCellColors);
     customSpokenSyllableCounts = std::move(next.customSpokenSyllableCounts);
     totalBars = next.totalBars;
+    barHeight = next.barHeight;
     viewMode = next.viewMode;
     darkMode = next.darkMode;
     customStanzaBreaksActive = next.customStanzaBreaksActive;
@@ -372,6 +487,17 @@ void LyricDocument::redo()
     if (notationChanged)
         notifyNotationChanged();
     notifyChanged();
+}
+
+void LyricDocument::setBarHeight(int h)
+{
+    int clamped = std::clamp(h, 32, 100);
+    if (barHeight != clamped)
+    {
+        pushUndoSnapshot();
+        barHeight = clamped;
+        notifyChanged();
+    }
 }
 
 void LyricDocument::clearCells(const std::vector<std::pair<int, int>>& cells)
@@ -752,19 +878,21 @@ void LyricDocument::duplicateCellToNext(int barIndex, int globalSyllableIndex)
 
 int LyricDocument::getCalculatedSyllableCount(int barIndex) const
 {
+    int maxSyllables = getNotation(barIndex).getTotalSyllables();
     auto it = barData.find(barIndex);
     if (it != barData.end())
     {
         int nonBlank = 0;
-        for (const auto& s : it->second)
+        int limit = std::min((int)it->second.size(), maxSyllables);
+        for (int i = 0; i < limit; ++i)
         {
-            if (s.trim().isNotEmpty())
+            if (it->second[i].trim().isNotEmpty())
                 nonBlank++;
         }
         if (nonBlank > 0)
             return nonBlank;
     }
-    return getNotation(barIndex).getTotalSyllables();
+    return maxSyllables;
 }
 
 int LyricDocument::getActualSpokenSyllableCount(int barIndex) const
@@ -1036,19 +1164,50 @@ void LyricDocument::insertBar(int afterBarIndex)
 
 void LyricDocument::refreshRhymes()
 {
-    std::vector<juce::String> allWords;
-    for (const auto& pair : barData)
+    std::vector<std::vector<juce::String>> lines;
+    std::vector<DocumentSyllable> allSyllables;
+
+    for (int b = 0; b < totalBars; ++b)
     {
-        for (const auto& s : pair.second)
+        auto it = barData.find(b);
+        if (it != barData.end() && !it->second.empty())
         {
-            juce::String trimmed = s.trim();
-            if (trimmed.isNotEmpty())
+            int maxS = getNotation(b).getTotalSyllables();
+            std::vector<juce::String> line;
+            int limit = std::min((int)it->second.size(), maxS);
+            for (int s = 0; s < limit; ++s)
             {
-                allWords.push_back(trimmed);
+                const juce::String& text = it->second[s];
+                line.push_back(text);
+                if (text.trim().isNotEmpty())
+                {
+                    allSyllables.push_back({ b, s, text });
+                }
             }
+            lines.push_back(line);
         }
     }
-    rhymeClassifier.updateRhymeMap(allWords);
+    rhymeClassifier.updateRhymeMapWithContext(lines);
+    rhymeClassifier.updateRepetitionMap(allSyllables);
+}
+
+juce::Colour LyricDocument::getVowelSoundColor(const juce::String& vowelKey) const
+{
+    return rhymeClassifier.getVowelColour(vowelKey);
+}
+
+void LyricDocument::setVowelSoundColor(const juce::String& vowelKey, const juce::Colour& colour)
+{
+    rhymeClassifier.setVowelColour(vowelKey, colour);
+    refreshRhymes();
+    notifyChanged();
+}
+
+void LyricDocument::resetVowelSoundColorsToDefaults()
+{
+    rhymeClassifier.resetVowelColoursToDefaults();
+    refreshRhymes();
+    notifyChanged();
 }
 
 juce::ValueTree LyricDocument::toValueTree() const
@@ -1060,8 +1219,10 @@ juce::ValueTree LyricDocument::toValueTree() const
     vt.setProperty("currentPage", currentPage, nullptr);
     vt.setProperty("barSpacing", (int)barSpacing, nullptr);
     vt.setProperty("viewMode", (int)viewMode, nullptr);
+    vt.setProperty("barHeight", barHeight, nullptr);
     vt.setProperty("darkMode", darkMode, nullptr);
     vt.setProperty("rhymeHighlight", rhymeClassifier.isEnabled(), nullptr);
+    vt.setProperty("colorMode", (int)rhymeClassifier.getColorMode(), nullptr);
     vt.setProperty("customStanzaBreaksActive", customStanzaBreaksActive, nullptr);
     if (customStanzaBreaksActive)
     {
@@ -1072,6 +1233,20 @@ juce::ValueTree LyricDocument::toValueTree() const
             breaksStr += juce::String(b);
         }
         vt.setProperty("stanzaBreaks", breaksStr, nullptr);
+    }
+
+    const auto& customVowels = rhymeClassifier.getCustomVowelColours();
+    if (!customVowels.empty())
+    {
+        juce::ValueTree vowelNode("VowelColors");
+        for (const auto& kv : customVowels)
+        {
+            juce::ValueTree item("Color");
+            item.setProperty("key", juce::String(kv.first), nullptr);
+            item.setProperty("colour", kv.second.toString(), nullptr);
+            vowelNode.addChild(item, -1, nullptr);
+        }
+        vt.addChild(vowelNode, -1, nullptr);
     }
 
     juce::ValueTree barsNode("Bars");
@@ -1141,9 +1316,39 @@ void LyricDocument::fromValueTree(const juce::ValueTree& vt)
     currentPage = vt.getProperty("currentPage", currentPage);
     barSpacing = (BarSpacing)(int)vt.getProperty("barSpacing", (int)barSpacing);
     viewMode = (ViewMode)(int)vt.getProperty("viewMode", (int)ModeScroll);
+    barHeight = vt.getProperty("barHeight", 50);
     darkMode = vt.getProperty("darkMode", false);
     NotebookLookAndFeel::setDarkMode(darkMode);
-    rhymeClassifier.setEnabled(vt.getProperty("rhymeHighlight", true));
+    if (vt.hasProperty("colorMode"))
+    {
+        int cm = vt.getProperty("colorMode");
+        rhymeClassifier.setColorMode(static_cast<RhymeClassifier::ColorMode>(std::clamp(cm, 0, 2)));
+    }
+    else
+    {
+        rhymeClassifier.setEnabled(vt.getProperty("rhymeHighlight", true));
+    }
+
+    auto vowelNode = vt.getChildWithName("VowelColors");
+    if (vowelNode.isValid())
+    {
+        std::unordered_map<std::string, juce::Colour> colMap;
+        for (int i = 0; i < vowelNode.getNumChildren(); ++i)
+        {
+            auto item = vowelNode.getChild(i);
+            juce::String key = item.getProperty("key").toString();
+            juce::String colStr = item.getProperty("colour").toString();
+            if (key.isNotEmpty() && colStr.isNotEmpty())
+            {
+                colMap[key.toStdString()] = juce::Colour::fromString(colStr);
+            }
+        }
+        rhymeClassifier.setCustomVowelColours(colMap);
+    }
+    else
+    {
+        rhymeClassifier.resetVowelColoursToDefaults();
+    }
 
     customStanzaBreaksActive = vt.getProperty("customStanzaBreaksActive", false);
     stanzaBreaks.clear();

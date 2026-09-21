@@ -1,6 +1,7 @@
 #include "SyllableCellComponent.h"
 #include "NotebookLookAndFeel.h"
 #include "NotebookPageView.h"
+#include "VowelColorCustomizerDialog.h"
 #include "../Model/SyllableSplitter.h"
 
 namespace CompassCadence
@@ -500,9 +501,20 @@ void SyllableCellComponent::updateContent()
 {
     currentText = document.getSyllable(barIndex, globalSyllableIndex);
     if (document.hasCustomCellColor(barIndex, globalSyllableIndex))
+    {
         rhymeHighlight = document.getCustomCellColor(barIndex, globalSyllableIndex);
+    }
     else
-        rhymeHighlight = document.getRhymeClassifier().getHighlightForSyllable(currentText);
+    {
+        juce::String prevSyl, nextSyl;
+        if (globalSyllableIndex > 0)
+            prevSyl = document.getSyllable(barIndex, globalSyllableIndex - 1).trim();
+        int totalSyls = document.getNotation(barIndex).getTotalSyllables();
+        if (globalSyllableIndex + 1 < totalSyls)
+            nextSyl = document.getSyllable(barIndex, globalSyllableIndex + 1).trim();
+
+        rhymeHighlight = document.getRhymeClassifier().getHighlightForCell(barIndex, globalSyllableIndex, currentText, prevSyl, nextSyl);
+    }
 
     if (!isMouseOver(true))
     {
@@ -597,9 +609,19 @@ void SyllableCellComponent::showContextMenu(const juce::MouseEvent&)
     juce::String headerText;
     if (trimmed.isNotEmpty())
     {
-        juce::String rhymeKey = RhymeClassifier::extractRhymeKey(trimmed);
+        juce::String prevSyl, nextSyl;
+        if (globalSyllableIndex > 0)
+            prevSyl = document.getSyllable(barIndex, globalSyllableIndex - 1).trim();
+        int totalSyls = document.getNotation(barIndex).getTotalSyllables();
+        if (globalSyllableIndex + 1 < totalSyls)
+            nextSyl = document.getSyllable(barIndex, globalSyllableIndex + 1).trim();
+
+        juce::String rhymeKey = RhymeClassifier::extractRhymeKeyWithContext(trimmed, prevSyl, nextSyl);
+        const auto* info = RhymeClassifier::findVowelSound(rhymeKey);
         headerText = "Syllable: \"" + trimmed + "\"";
-        if (rhymeKey.isNotEmpty())
+        if (info != nullptr)
+            headerText += " [" + info->label + " - " + info->examples + "]";
+        else if (rhymeKey.isNotEmpty())
             headerText += " [" + rhymeKey + "]";
     }
     else
@@ -608,21 +630,40 @@ void SyllableCellComponent::showContextMenu(const juce::MouseEvent&)
     }
     menu.addSectionHeader(headerText);
 
-    // 2. Highlight Color Submenu
+    // 2. Highlight Color Submenu with 15 Vowel Phonemes & Swatches
     juce::PopupMenu colorSubMenu;
     bool isAuto = !document.hasCustomCellColor(barIndex, globalSyllableIndex);
-    colorSubMenu.addItem(100, "Auto (Phoneme Rhyme Tint)", true, isAuto);
+    colorSubMenu.addItem(100, "Auto (Phonemic Vowel Tint)", true, isAuto);
     colorSubMenu.addSeparator();
-    colorSubMenu.addItem(101, "Pastel Mint");
-    colorSubMenu.addItem(102, "Pastel Sky");
-    colorSubMenu.addItem(103, "Pastel Peach");
-    colorSubMenu.addItem(104, "Pastel Lavender");
-    colorSubMenu.addItem(105, "Pastel Butter");
-    colorSubMenu.addItem(106, "Pastel Rose");
-    colorSubMenu.addItem(107, "Slate Gray");
+
+    const auto& catalog = RhymeClassifier::getVowelSoundCatalog();
+    for (int i = 0; i < (int)catalog.size(); ++i)
+    {
+        const auto& entry = catalog[i];
+        juce::Colour c = document.getVowelSoundColor(entry.key);
+
+        juce::Image img(juce::Image::ARGB, 14, 14, true);
+        {
+            juce::Graphics g(img);
+            g.setColour(c.withAlpha(1.0f));
+            g.fillRoundedRectangle(0.0f, 0.0f, 14.0f, 14.0f, 2.5f);
+            g.setColour(juce::Colour(0x60000000));
+            g.drawRoundedRectangle(0.5f, 0.5f, 13.0f, 13.0f, 2.5f, 1.0f);
+        }
+        auto d = std::make_unique<juce::DrawableImage>();
+        d->setImage(img);
+
+        juce::PopupMenu::Item item;
+        item.itemID = 1000 + i;
+        item.text = entry.label + " (" + entry.examples + ")";
+        item.setImage(std::move(d));
+        colorSubMenu.addItem(item);
+    }
+
     colorSubMenu.addSeparator();
     colorSubMenu.addItem(108, "Clear Highlight (None)");
-    colorSubMenu.addItem(109, "Custom Color...");
+    colorSubMenu.addItem(109, "Custom Cell Color...");
+    colorSubMenu.addItem(110, "Customize Vowel Color Scheme...");
     menu.addSubMenu("Highlight Color", colorSubMenu);
 
     // 3. Text Transform Submenu
@@ -671,25 +712,19 @@ void SyllableCellComponent::showContextMenu(const juce::MouseEvent&)
                 document.clearCustomCellColor(barIndex, globalSyllableIndex);
             updateContent();
         }
-        else if (result >= 101 && result <= 107) // Pastel Swatches
+        else if (result >= 1000 && result < 1000 + (int)RhymeClassifier::getVowelSoundCatalog().size())
         {
-            juce::Colour chosen;
-            switch (result)
+            int idx = result - 1000;
+            const auto& catalog = RhymeClassifier::getVowelSoundCatalog();
+            if (idx >= 0 && idx < (int)catalog.size())
             {
-                case 101: chosen = swatchMint; break;
-                case 102: chosen = swatchSky; break;
-                case 103: chosen = swatchPeach; break;
-                case 104: chosen = swatchLavender; break;
-                case 105: chosen = swatchButter; break;
-                case 106: chosen = swatchRose; break;
-                case 107: chosen = swatchSlate; break;
-                default: break;
+                juce::Colour chosen = document.getVowelSoundColor(catalog[(size_t)idx].key);
+                if (isMulti)
+                    document.setSelectionCustomColor(chosen);
+                else
+                    document.setCustomCellColor(barIndex, globalSyllableIndex, chosen);
+                updateContent();
             }
-            if (isMulti)
-                document.setSelectionCustomColor(chosen);
-            else
-                document.setCustomCellColor(barIndex, globalSyllableIndex, chosen);
-            updateContent();
         }
         else if (result == 108) // Clear Highlight (None)
         {
@@ -702,6 +737,10 @@ void SyllableCellComponent::showContextMenu(const juce::MouseEvent&)
         else if (result == 109) // Custom Color Picker
         {
             openCustomColorPicker();
+        }
+        else if (result == 110) // Customize Vowel Color Scheme
+        {
+            VowelColorCustomizerDialog::showDialog(this, document);
         }
         // Case transforms
         else if (result == 201) // Upper

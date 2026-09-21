@@ -158,6 +158,10 @@ public:
     bool isDarkMode() const noexcept { return darkMode; }
     void setDarkMode(bool dark);
 
+    // Row / Bar Height (Default 50, minimum 32)
+    int getBarHeight() const noexcept { return barHeight; }
+    void setBarHeight(int h);
+
     // Page management
     int getCurrentPage() const noexcept { return currentPage; }
     void setCurrentPage(int page);
@@ -183,14 +187,21 @@ public:
     // Rhyme classification
     RhymeClassifier& getRhymeClassifier() noexcept { return rhymeClassifier; }
     const RhymeClassifier& getRhymeClassifier() const noexcept { return rhymeClassifier; }
+    RhymeClassifier::ColorMode getColorMode() const noexcept { return rhymeClassifier.getColorMode(); }
+    void setColorMode(RhymeClassifier::ColorMode mode) { rhymeClassifier.setColorMode(mode); refreshRhymes(); notifyChanged(); }
+    void cycleColorMode() { rhymeClassifier.cycleColorMode(); refreshRhymes(); notifyChanged(); }
     void refreshRhymes();
+    juce::Colour getVowelSoundColor(const juce::String& vowelKey) const;
+    void setVowelSoundColor(const juce::String& vowelKey, const juce::Colour& colour);
+    void resetVowelSoundColorsToDefaults();
 
     // ValueTree Serialization for DAW project saving
     juce::ValueTree toValueTree() const;
     void fromValueTree(const juce::ValueTree& vt);
 
-private:
     void notifyChanged();
+
+private:
     void notifyNotationChanged();
     void notifyBarNotationChanged(int barIndex);
     void notifySelectionChanged();
@@ -205,6 +216,7 @@ private:
         std::map<std::pair<int, int>, juce::Colour> customCellColors;
         std::map<int, int> customSpokenSyllableCounts;
         int totalBars = 320;
+        int barHeight = 50;
         ViewMode viewMode = ModeScroll;
         bool darkMode = false;
         bool customStanzaBreaksActive = false;
@@ -218,6 +230,8 @@ private:
     int totalBars = 320;
     int barsPerPage = 16;
     int currentPage = 0;
+    int barHeight = 50;
+
     BarSpacing barSpacing = Spacing4;
     ViewMode viewMode = ModeScroll;
     bool darkMode = false;
