@@ -320,7 +320,7 @@ button.vst-btn.toggled {
 .bar-row {
   display: flex;
   align-items: center;
-  height: 38px;
+  height: 50px;
   border-bottom: 1px solid var(--paper-rule);
   position: relative;
   padding-left: 0;
@@ -422,7 +422,7 @@ button.vst-btn.toggled {
 .pulse-group-box {
   display: flex;
   flex: 1;
-  height: 30px;
+  height: 42px;
   border: 2.2px solid var(--pulse-box-border);
   border-radius: 3px;
   background: var(--pulse-box-bg);
