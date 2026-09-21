@@ -1106,6 +1106,16 @@
       // Input Event: Live Text Update (and Mobile Spacebar Fallback)
       input.addEventListener('input', (e) => {
         const val = input.value;
+
+        // Mobile Paste via IME suggestion bar (doesn't trigger native 'paste' event)
+        const isPaste = e.inputType === 'insertFromPaste' || 
+                        (val.trim().includes(' ') && Math.abs(val.length - (syl.text || '').length) > 1);
+        if (isPaste && val.length > 1) {
+          syl.text = ''; // clear it out
+          this.closeActiveEditor();
+          this.distributePastedWords(b, pIdx, sIdx, val);
+          return;
+        }
         
         // Mobile IME check for Space/Hyphen
         if (val.endsWith(' ') || val.endsWith('-')) {
