@@ -1103,9 +1103,23 @@
 
       this.activeEditor = { b, pIdx, sIdx, inputEl: input, syl };
 
-      // Input Event: Live Text Update
+      // Input Event: Live Text Update (and Mobile Spacebar Fallback)
       input.addEventListener('input', (e) => {
-        syl.text = input.value;
+        const val = input.value;
+        
+        // Mobile IME check for Space/Hyphen
+        if (val.endsWith(' ') || val.endsWith('-')) {
+          const isHyphen = val.endsWith('-');
+          let cleanVal = val.slice(0, -1).trim();
+          if (isHyphen && cleanVal) cleanVal += '-';
+          
+          syl.text = cleanVal;
+          this.closeActiveEditor();
+          this.advanceFocus(b, pIdx, sIdx, 1);
+          return;
+        }
+
+        syl.text = val;
         this.updateRowCounter(b);
       });
 
