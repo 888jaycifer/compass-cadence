@@ -7,6 +7,39 @@
   'use strict';
 
   // =========================================================================
+  // 0. Syllable Splitter Engine
+  // =========================================================================
+  class SyllableSplitter {
+    static splitWord(word) {
+        word = word.trim();
+        if (word.length <= 3) return [word];
+        const lower = word.toLowerCase();
+        
+        let syls = lower.match(/[^aeiouy]*[aeiouy]+(?:[^aeiouy]*$|[^aeiouy](?=[^aeiouy]))?/gi);
+        if (!syls) return [word];
+        
+        // Correct silent E suffixes
+        if (syls.length > 1) {
+            let last = syls[syls.length-1];
+            if (last.match(/e$/) || last.match(/ed$/) || last.match(/es$/)) {
+                if (!last.match(/[lxcsz]es$/) && !last.match(/ches$/) && !last.match(/shes$/)) {
+                    let prev = syls[syls.length-2];
+                    syls[syls.length-2] = prev + syls.pop();
+                }
+            }
+        }
+        
+        let idx = 0;
+        let result = [];
+        for (let s of syls) {
+            result.push(word.slice(idx, idx + s.length));
+            idx += s.length;
+        }
+        return result.length > 0 ? result : [word];
+    }
+  }
+
+  // =========================================================================
   // 1. Metric Cross-Rhythm Notation Model
   // =========================================================================
   class MetricNotation {
@@ -392,6 +425,9 @@
       this.darkMode = true;
       this.rhymesEnabled = false;
       this.followDAW = true;
+      this.autoSplitEnabled = true;
+      this.isDraggingSelection = false;
+      this.dragStartCell = null;
       this.activeTabIdx = 0;
 
       this.tabs = [
@@ -485,6 +521,7 @@
       this.savePresetBtn = document.getElementById('save-preset-btn');
       this.rhymeToggleBtn = document.getElementById('rhyme-toggle-btn');
       this.followToggleBtn = document.getElementById('follow-toggle-btn');
+      this.autoSplitToggleBtn = document.getElementById('auto-split-btn');
       this.copyBtn = document.getElementById('copy-btn');
       this.exportBtn = document.getElementById('export-btn');
       this.songsBtn = document.getElementById('songs-btn');
@@ -545,8 +582,8 @@
       });
 
       // Presets & Save
-      this.presetBtn.addEventListener('click', (e) => this.showPresetMenu(e));
-      this.savePresetBtn.addEventListener('click', () => this.promptSavePreset());
+      this.presetBtn.addEventListener('click', (e) => { e.stopPropagation(); this.showPresetMenu(e); });
+      this.savePresetBtn.addEventListener('click', (e) => { e.stopPropagation(); this.promptSavePreset(); });
 
       // DAW Status click toggles Play/Stop
       this.dawStatusLabel.addEventListener('click', () => this.togglePlayback());
@@ -566,10 +603,19 @@
         this.followToggleBtn.textContent = this.followDAW ? 'Follow DAW: ON' : 'Follow DAW: OFF';
       });
 
+      // Auto Split Toggle
+      if (this.autoSplitToggleBtn) {
+        this.autoSplitToggleBtn.addEventListener('click', () => {
+          this.autoSplitEnabled = !this.autoSplitEnabled;
+          this.autoSplitToggleBtn.classList.toggle('toggled', this.autoSplitEnabled);
+          this.autoSplitToggleBtn.textContent = this.autoSplitEnabled ? 'Auto Split: ON' : 'Auto Split: OFF';
+        });
+      }
+
       // Copy & Export & Songs
-      this.copyBtn.addEventListener('click', () => this.copyLyrics());
-      this.exportBtn.addEventListener('click', (e) => this.showExportMenu(e));
-      this.songsBtn.addEventListener('click', (e) => this.showSongsMenu(e));
+      this.copyBtn.addEventListener('click', (e) => { e.stopPropagation(); this.copyLyrics(); });
+      this.exportBtn.addEventListener('click', (e) => { e.stopPropagation(); this.showExportMenu(e); });
+      this.songsBtn.addEventListener('click', (e) => { e.stopPropagation(); this.showSongsMenu(e); });
 
       // Dark Mode Toggle
       this.darkModeBtn.addEventListener('click', () => {
@@ -611,19 +657,61 @@
           if (m && !m.contains(e.target)) m.style.display = 'none';
         });
       });
+      
+      document.addEventListener('mouseup', () => {
+        this.isDraggingSelection = false;
+        this.dragStartCell = null;
+      });
 
-      // Global Spacebar Transport Toggle (when not actively editing a cell)
+      // Global Spacebar Transport Toggle & Shortcuts
       document.addEventListener('keydown', (e) => {
-        if (e.code === 'Space' && !this.activeEditor) {
-          e.preventDefault();
-          this.togglePlayback();
+        if (!this.activeEditor) {
+          if (e.code === 'Space') {
+            e.preventDefault();
+            this.togglePlayback();
+          }
+          if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+            e.preventDefault(); this.undo();
+          }
+          if (((e.ctrlKey || e.metaKey) && e.key === 'y') || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Z')) {
+            e.preventDefault(); this.redo();
+          }
+          
+          // Selection Shortcuts
+          if (this.selectedCells.size > 0) {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+              e.preventDefault(); this.toggleBoldSelection();
+            } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+              e.preventDefault(); this.copySelection();
+            } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x') {
+              e.preventDefault(); this.cutSelection();
+            } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+              e.preventDefault(); this.pasteIntoSelection();
+            } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'j') {
+              e.preventDefault(); this.joinSelection();
+            } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+              e.preventDefault(); this.splitSelection();
+            } else if (e.key === 'Delete' || e.key === 'Backspace') {
+              e.preventDefault(); this.clearSelection();
+            } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+              // Missed First Letter Fix
+              const firstId = Array.from(this.selectedCells)[0];
+              const [b, pIdx, sIdx] = firstId.split('-').map(Number);
+              this.selectedCells.clear();
+              this.updateCellSelectionVisuals();
+              this.activateCellEditor(b, pIdx, sIdx, e.key);
+              e.preventDefault();
+            }
+          }
         }
-        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-          if (!this.activeEditor) { e.preventDefault(); this.undo(); }
-        }
-        if (((e.ctrlKey || e.metaKey) && e.key === 'y') || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Z')) {
-          if (!this.activeEditor) { e.preventDefault(); this.redo(); }
-        }
+      });
+    }
+
+    updateCellSelectionVisuals() {
+      document.querySelectorAll('.syllable-cell.selected').forEach(el => el.classList.remove('selected'));
+      this.selectedCells.forEach(idStr => {
+        const el = document.getElementById(`cell-${idStr}`);
+        if (el) el.classList.add('selected');
       });
     }
 
@@ -851,12 +939,12 @@
             textSpan.textContent = syl.text;
             cell.appendChild(textSpan);
 
-            // Hover Alignment Controls (Bottom Left, Bottom Underline, Bottom Right)
+            // Hover Alignment Controls
             const alignPanel = document.createElement('div');
             alignPanel.className = 'cell-align-panel';
             alignPanel.innerHTML = `
               <button class="align-arrow-left ${syl.align === 'left' ? 'active' : ''}" title="Align Left">←</button>
-              <div class="align-underline-bar ${syl.align === 'center' ? 'active' : ''}" title="Align Center / Down"></div>
+              <div class="align-underline-wrapper"><div class="align-underline-bar ${syl.align === 'center' ? 'active' : ''}" title="Align Center / Down"></div></div>
               <button class="align-arrow-right ${syl.align === 'right' ? 'active' : ''}" title="Align Right">→</button>
             `;
 
@@ -864,7 +952,7 @@
               e.stopPropagation();
               this.setCellAlignment(b, pIdx, sIdx, 'left');
             });
-            alignPanel.querySelector('.align-underline-bar').addEventListener('click', (e) => {
+            alignPanel.querySelector('.align-underline-wrapper').addEventListener('click', (e) => {
               e.stopPropagation();
               this.setCellAlignment(b, pIdx, sIdx, 'center');
             });
@@ -875,16 +963,42 @@
 
             cell.appendChild(alignPanel);
 
-            // Cell Click to Focus / Edit
-            cell.addEventListener('click', (e) => {
-              // If click happened on alignment controls, ignore
+            // Cell Click & Drag Selection
+            cell.addEventListener('mousedown', (e) => {
               if (e.target.closest('.cell-align-panel')) return;
-              this.activateCellEditor(b, pIdx, sIdx);
+              if (e.button !== 0) return; // Only left click
+              this.isDraggingSelection = true;
+              this.dragStartCell = { b, pIdx, sIdx };
+              
+              if (!e.shiftKey && !e.ctrlKey) {
+                this.selectedCells.clear();
+              }
+              this.selectedCells.add(`${b}-${pIdx}-${sIdx}`);
+              this.updateCellSelectionVisuals();
+            });
+
+            cell.addEventListener('mouseenter', (e) => {
+              if (this.isDraggingSelection) {
+                this.selectedCells.add(`${b}-${pIdx}-${sIdx}`);
+                this.updateCellSelectionVisuals();
+              }
+            });
+
+            cell.addEventListener('click', (e) => {
+              if (e.target.closest('.cell-align-panel')) return;
+              if (this.selectedCells.size <= 1) {
+                this.activateCellEditor(b, pIdx, sIdx);
+              }
             });
 
             // Cell Context Menu (Right Click)
             cell.addEventListener('contextmenu', (e) => {
               e.preventDefault();
+              if (this.selectedCells.size <= 1 || !this.selectedCells.has(`${b}-${pIdx}-${sIdx}`)) {
+                  this.selectedCells.clear();
+                  this.selectedCells.add(`${b}-${pIdx}-${sIdx}`);
+                  this.updateCellSelectionVisuals();
+              }
               this.showCellContextMenu(e.clientX, e.clientY, b, pIdx, sIdx);
             });
 
@@ -928,6 +1042,10 @@
           this.pushSnapshot();
           bar.customSpokenCount = null;
           this.updateRowCounter(b);
+        });
+        counterWrap.querySelector('.syl-count-badge').addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          this.showCounterMenu(e.clientX, e.clientY, b);
         });
 
         row.appendChild(counterWrap);
@@ -1184,13 +1302,20 @@
     distributePastedWords(b, pIdx, sIdx, text) {
       this.pushSnapshot();
       const words = text.split(/[\s\r\n]+/).filter(Boolean);
+      let itemsToDistribute = [];
+      if (this.autoSplitEnabled) {
+          words.forEach(w => { itemsToDistribute.push(...SyllableSplitter.splitWord(w)); });
+      } else {
+          itemsToDistribute = words;
+      }
+      
       const bars = this.tabs[this.activeTabIdx].bars;
 
       let curB = b;
       let curP = pIdx;
       let curS = sIdx;
 
-      words.forEach((w) => {
+      itemsToDistribute.forEach((w) => {
         if (curB < bars.length) {
           const bar = bars[curB];
           if (curP < bar.syllables.length && curS < bar.syllables[curP].length) {
@@ -1249,7 +1374,93 @@
     }
 
     // =========================================================================
-    // 9. Context Menus & Dialogs
+    // 9. Selection Utility Commands
+    // =========================================================================
+    getSortedSelection() {
+       return Array.from(this.selectedCells).map(id => {
+           const parts = id.split('-');
+           return { b: parseInt(parts[0]), p: parseInt(parts[1]), s: parseInt(parts[2]) };
+       }).sort((a, b) => {
+           if (a.b !== b.b) return a.b - b.b;
+           if (a.p !== b.p) return a.p - b.p;
+           return a.s - b.s;
+       });
+    }
+
+    toggleBoldSelection() {
+       if (this.selectedCells.size === 0) return;
+       this.pushSnapshot();
+       const cells = this.getSortedSelection();
+       const targetBold = !this.tabs[this.activeTabIdx].bars[cells[0].b].syllables[cells[0].p][cells[0].s].bold;
+       cells.forEach(c => {
+           this.tabs[this.activeTabIdx].bars[c.b].syllables[c.p][c.s].bold = targetBold;
+       });
+       this.renderPage();
+    }
+
+    copySelection() {
+       if (this.selectedCells.size === 0) return;
+       const cells = this.getSortedSelection();
+       const text = cells.map(c => this.tabs[this.activeTabIdx].bars[c.b].syllables[c.p][c.s].text).join(' ');
+       navigator.clipboard.writeText(text);
+    }
+
+    cutSelection() {
+       this.copySelection();
+       this.clearSelection();
+    }
+
+    pasteIntoSelection() {
+       if (this.selectedCells.size === 0) return;
+       const first = this.getSortedSelection()[0];
+       navigator.clipboard.readText().then(text => {
+           if (text) this.distributePastedWords(first.b, first.p, first.s, text);
+       });
+    }
+
+    clearSelection() {
+       if (this.selectedCells.size === 0) return;
+       this.pushSnapshot();
+       this.getSortedSelection().forEach(c => {
+           this.tabs[this.activeTabIdx].bars[c.b].syllables[c.p][c.s].text = '';
+       });
+       this.renderPage();
+    }
+
+    joinSelection() {
+       if (this.selectedCells.size <= 1) return;
+       this.pushSnapshot();
+       const cells = this.getSortedSelection();
+       const first = cells.shift();
+       const bar = this.tabs[this.activeTabIdx].bars[first.b];
+       
+       let combinedText = bar.syllables[first.p][first.s].text || '';
+       cells.forEach(c => {
+           combinedText += this.tabs[this.activeTabIdx].bars[c.b].syllables[c.p][c.s].text || '';
+           this.tabs[this.activeTabIdx].bars[c.b].syllables[c.p][c.s].text = '';
+       });
+       bar.syllables[first.p][first.s].text = combinedText;
+       this.renderPage();
+    }
+
+    splitSelection() {
+       if (this.selectedCells.size === 0) return;
+       this.pushSnapshot();
+       const cells = this.getSortedSelection();
+       cells.forEach(c => {
+           const sylObj = this.tabs[this.activeTabIdx].bars[c.b].syllables[c.p][c.s];
+           if (sylObj.text) {
+               const split = SyllableSplitter.splitWord(sylObj.text);
+               if (split.length > 1) {
+                   sylObj.text = ''; // Clear original
+                   this.distributePastedWords(c.b, c.p, c.s, split.join(' '));
+               }
+           }
+       });
+    }
+
+    // =========================================================================
+    // 10. Context Menus & Dialogs
     // =========================================================================
     showCellContextMenu(x, y, b, pIdx, sIdx) {
       const syl = this.tabs[this.activeTabIdx].bars[b].syllables[pIdx][sIdx];
@@ -1259,6 +1470,7 @@
       this.contextMenu.style.left = `${Math.min(x, window.innerWidth - 220)}px`;
       this.contextMenu.style.top = `${Math.min(y, window.innerHeight - 380)}px`;
 
+      const VIVID_SWATCHES = ['#EF4444', '#F97316', '#F59E0B', '#84CC16', '#22C55E', '#10B981', '#06B6D4', '#3B82F6', '#6366F1', '#8B5CF6', '#D946EF', '#F43F5E'];
       this.contextMenu.innerHTML = `
         <div class="popup-menu-header">${headerTitle}</div>
         <div class="popup-submenu-container">
@@ -1269,6 +1481,14 @@
             ${PASTEL_SWATCHES.map((sw, idx) => `<div class="popup-menu-item" id="ctx-col-${idx}">${sw.name}</div>`).join('')}
             <div class="popup-menu-separator"></div>
             <div class="popup-menu-item" id="ctx-col-clear">Clear Highlight (None)</div>
+          </div>
+        </div>
+        <div class="popup-submenu-container">
+          <div class="popup-menu-item">Custom Color ▶</div>
+          <div class="popup-submenu" style="width: 140px; transform: translateY(-30px);">
+             <div class="palette-grid">
+               ${VIVID_SWATCHES.map((hex, idx) => `<div class="palette-swatch" id="ctx-cust-col-${idx}" style="background-color: ${hex}" title="${hex}"></div>`).join('')}
+             </div>
           </div>
         </div>
         <div class="popup-submenu-container">
@@ -1292,68 +1512,96 @@
         <div class="popup-menu-separator"></div>
         <div class="popup-menu-item" id="ctx-cut">Cut (Ctrl+X)</div>
         <div class="popup-menu-item" id="ctx-copy">Copy (Ctrl+C)</div>
+        <div class="popup-menu-item" id="ctx-paste">Paste (Ctrl+V)</div>
+        <div class="popup-menu-separator"></div>
+        <div class="popup-menu-item" id="ctx-join">Join Cells (Ctrl+J)</div>
+        <div class="popup-menu-item" id="ctx-split">Split Syllables (Ctrl+K)</div>
         <div class="popup-menu-item" id="ctx-clear">Clear Cell (Del)</div>
       `;
       this.contextMenu.style.display = 'block';
 
+      const applyToSelection = (fn) => {
+        if (this.selectedCells.size > 1) {
+           this.getSortedSelection().forEach(c => fn(this.tabs[this.activeTabIdx].bars[c.b].syllables[c.p][c.s], c.b, c.p, c.s));
+        } else {
+           fn(syl, b, pIdx, sIdx);
+        }
+      };
+
       // Color actions
       document.getElementById('ctx-col-auto').onclick = () => {
-        syl.customColor = null;
+        this.pushSnapshot();
+        applyToSelection(s => s.customColor = null);
         this.contextMenu.style.display = 'none';
         this.renderPage();
       };
       PASTEL_SWATCHES.forEach((sw, idx) => {
         const el = document.getElementById(`ctx-col-${idx}`);
-        if (el) {
-          el.onclick = () => {
-            syl.customColor = sw.color;
+        if (el) el.onclick = () => {
+            this.pushSnapshot();
+            applyToSelection(s => s.customColor = sw.color);
             this.contextMenu.style.display = 'none';
             this.renderPage();
-          };
-        }
+        };
+      });
+      const VIVID_SWATCHES = ['#EF4444', '#F97316', '#F59E0B', '#84CC16', '#22C55E', '#10B981', '#06B6D4', '#3B82F6', '#6366F1', '#8B5CF6', '#D946EF', '#F43F5E'];
+      VIVID_SWATCHES.forEach((hex, idx) => {
+        const el = document.getElementById(`ctx-cust-col-${idx}`);
+        if (el) el.onclick = () => {
+            this.pushSnapshot();
+            applyToSelection(s => s.customColor = hex);
+            this.contextMenu.style.display = 'none';
+            this.renderPage();
+        };
       });
       document.getElementById('ctx-col-clear').onclick = () => {
-        syl.customColor = 'transparent';
+        this.pushSnapshot();
+        applyToSelection(s => s.customColor = 'transparent');
         this.contextMenu.style.display = 'none';
         this.renderPage();
       };
 
       // Case transforms
       document.getElementById('ctx-case-upper').onclick = () => {
-        syl.text = syl.text.toUpperCase();
+        this.pushSnapshot();
+        applyToSelection(s => s.text = s.text.toUpperCase());
         this.contextMenu.style.display = 'none';
         this.renderPage();
       };
       document.getElementById('ctx-case-lower').onclick = () => {
-        syl.text = syl.text.toLowerCase();
+        this.pushSnapshot();
+        applyToSelection(s => s.text = s.text.toLowerCase());
         this.contextMenu.style.display = 'none';
         this.renderPage();
       };
       document.getElementById('ctx-case-title').onclick = () => {
-        syl.text = syl.text.charAt(0).toUpperCase() + syl.text.slice(1).toLowerCase();
+        this.pushSnapshot();
+        applyToSelection(s => s.text = s.text.charAt(0).toUpperCase() + s.text.slice(1).toLowerCase());
         this.contextMenu.style.display = 'none';
         this.renderPage();
       };
 
       // Alignment
       document.getElementById('ctx-align-left').onclick = () => {
-        this.setCellAlignment(b, pIdx, sIdx, 'left');
+        this.pushSnapshot();
+        applyToSelection((s, cb, cp, cs) => this.setCellAlignment(cb, cp, cs, 'left'));
         this.contextMenu.style.display = 'none';
       };
       document.getElementById('ctx-align-center').onclick = () => {
-        this.setCellAlignment(b, pIdx, sIdx, 'center');
+        this.pushSnapshot();
+        applyToSelection((s, cb, cp, cs) => this.setCellAlignment(cb, cp, cs, 'center'));
         this.contextMenu.style.display = 'none';
       };
       document.getElementById('ctx-align-right').onclick = () => {
-        this.setCellAlignment(b, pIdx, sIdx, 'right');
+        this.pushSnapshot();
+        applyToSelection((s, cb, cp, cs) => this.setCellAlignment(cb, cp, cs, 'right'));
         this.contextMenu.style.display = 'none';
       };
 
       // Bold
       document.getElementById('ctx-bold').onclick = () => {
-        syl.bold = !syl.bold;
+        this.toggleBoldSelection();
         this.contextMenu.style.display = 'none';
-        this.renderPage();
       };
 
       // Duplicate
@@ -1369,19 +1617,46 @@
 
       // Clipboard
       document.getElementById('ctx-cut').onclick = () => {
-        navigator.clipboard.writeText(syl.text);
-        syl.text = '';
+        this.cutSelection();
         this.contextMenu.style.display = 'none';
-        this.renderPage();
       };
       document.getElementById('ctx-copy').onclick = () => {
-        navigator.clipboard.writeText(syl.text);
+        this.copySelection();
+        this.contextMenu.style.display = 'none';
+      };
+      document.getElementById('ctx-paste').onclick = () => {
+        this.pasteIntoSelection();
+        this.contextMenu.style.display = 'none';
+      };
+      document.getElementById('ctx-join').onclick = () => {
+        this.joinSelection();
+        this.contextMenu.style.display = 'none';
+      };
+      document.getElementById('ctx-split').onclick = () => {
+        this.splitSelection();
         this.contextMenu.style.display = 'none';
       };
       document.getElementById('ctx-clear').onclick = () => {
-        syl.text = '';
+        this.clearSelection();
         this.contextMenu.style.display = 'none';
-        this.renderPage();
+      };
+    }
+
+    showCounterMenu(x, y, b) {
+      const bar = this.tabs[this.activeTabIdx].bars[b];
+      this.contextMenu.style.left = `${Math.min(x, window.innerWidth - 200)}px`;
+      this.contextMenu.style.top = `${Math.min(y, window.innerHeight - 100)}px`;
+
+      this.contextMenu.innerHTML = `
+        <div class="popup-menu-item" id="ctx-reset-counter">Reset to Calculated Count (X)</div>
+      `;
+      this.contextMenu.style.display = 'block';
+
+      document.getElementById('ctx-reset-counter').onclick = () => {
+        this.pushSnapshot();
+        bar.customSpokenCount = null;
+        this.updateRowCounter(b);
+        this.contextMenu.style.display = 'none';
       };
     }
 
