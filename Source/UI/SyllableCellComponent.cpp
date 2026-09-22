@@ -708,12 +708,24 @@ void SyllableCellComponent::showContextMenu(const juce::MouseEvent&)
 
     menu.addSeparator();
 
-    // 7. Cell Operations
+    // 7. Meter & Syllable Insertion
+    menu.addItem(701, "Insert Syllable Before (+Meter)");
+    menu.addItem(702, "Insert Syllable After (+Meter)");
+    bool canDeleteBox = document.getNotation(barIndex).getSyllablesForPulse(pulseIndex) > 1;
+    menu.addItem(703, "Delete Syllable Box (-Meter)", canDeleteBox);
+
+    menu.addSeparator();
+
+    // 8. Cell Operations
     menu.addItem(601, "Join Cells (Ctrl+J)");
     menu.addItem(602, "Split Syllables (Ctrl+K)", trimmed.isNotEmpty());
     menu.addItem(603, "Clear Cell (Del)", trimmed.isNotEmpty());
 
-    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this), [this, isMulti](int result) {
+    int bIdx = barIndex;
+    int gIdx = globalSyllableIndex;
+    auto& docRef = document;
+
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this), [this, isMulti, bIdx, gIdx, &docRef](int result) {
         if (result == 0)
             return;
 
@@ -849,6 +861,22 @@ void SyllableCellComponent::showContextMenu(const juce::MouseEvent&)
                 else
                     commitText(clip, false);
             }
+        }
+        // Meter & Syllable Insertion
+        else if (result == 701) // Insert Syllable Before
+        {
+            docRef.insertSyllableInBar(bIdx, gIdx, false);
+            return;
+        }
+        else if (result == 702) // Insert Syllable After
+        {
+            docRef.insertSyllableInBar(bIdx, gIdx, true);
+            return;
+        }
+        else if (result == 703) // Delete Syllable Box
+        {
+            docRef.deleteSyllableInBar(bIdx, gIdx);
+            return;
         }
         // Cell manipulation
         else if (result == 601) // Join

@@ -109,6 +109,10 @@ public:
     void joinWithNext(int barIndex, int globalSyllableIndex);
     void splitCell(int barIndex, int globalSyllableIndex);
 
+    // Dynamic syllable insertion and meter alteration via direct interaction
+    void insertSyllableInBar(int barIndex, int globalSyllableIndex, bool insertAfter = false);
+    void deleteSyllableInBar(int barIndex, int globalSyllableIndex);
+
     // Bold emphasis notation
     bool isCellBold(int barIndex, int globalSyllableIndex) const;
     void setCellBold(int barIndex, int globalSyllableIndex, bool bold, bool notify = true);

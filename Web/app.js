@@ -50,15 +50,21 @@
 
     static fromString(str, fallbackBeats = 4) {
       if (!str) return new MetricNotation([3, 3, 3, 2, 2, 2], 4);
-      const match = str.trim().match(/^\[([0-9]+)\](?:\/([0-9]+):([0-9]+))?/);
+      const match = str.trim().match(/^\[([0-9,]+)\](?:\/([0-9]+):([0-9]+))?/);
       if (!match) return new MetricNotation([3, 3, 3, 2, 2, 2], 4);
-      const digits = match[1].split('').map(Number);
+      let digits;
+      if (match[1].includes(',')) {
+        digits = match[1].split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n) && n > 0);
+      } else {
+        digits = match[1].split('').map(Number);
+      }
       const beats = match[3] ? parseInt(match[3], 10) : (match[2] ? parseInt(match[2], 10) : fallbackBeats);
       return new MetricNotation(digits.length ? digits : [3, 3, 3, 2, 2, 2], beats || 4);
     }
 
     toString() {
-      const digits = this.pulseSubdivs.join('');
+      const multiDigit = this.pulseSubdivs.some(n => n >= 10);
+      const digits = multiDigit ? this.pulseSubdivs.join(',') : this.pulseSubdivs.join('');
       return `[${digits}]/${this.pulseSubdivs.length}:${this.beatsPerBar}`;
     }
 
@@ -1718,6 +1724,7 @@
       this.contextMenu.style.left = `${Math.min(x, window.innerWidth - 220)}px`;
       this.contextMenu.style.top = `${Math.min(y, window.innerHeight - 380)}px`;
 
+      const canDeleteBox = bar.notation.pulseSubdivs[pIdx] > 1;
       const VIVID_SWATCHES = ['#EF4444', '#F97316', '#F59E0B', '#84CC16', '#22C55E', '#10B981', '#06B6D4', '#3B82F6', '#6366F1', '#8B5CF6', '#D946EF', '#F43F5E'];
       this.contextMenu.innerHTML = `
         <div class="popup-menu-header">${headerTitle}</div>
@@ -1768,6 +1775,10 @@
         <div class="popup-menu-item" id="ctx-cut">Cut (Ctrl+X)</div>
         <div class="popup-menu-item" id="ctx-copy">Copy (Ctrl+C)</div>
         <div class="popup-menu-item" id="ctx-paste">Paste (Ctrl+V)</div>
+        <div class="popup-menu-separator"></div>
+        <div class="popup-menu-item" id="ctx-syl-ins-before">Insert Syllable Before (+Meter)</div>
+        <div class="popup-menu-item" id="ctx-syl-ins-after">Insert Syllable After (+Meter)</div>
+        <div class="popup-menu-item ${canDeleteBox ? '' : 'disabled'}" id="ctx-syl-delete" ${canDeleteBox ? '' : 'style="opacity:0.4;pointer-events:none;"'}>Delete Syllable Box (-Meter)</div>
         <div class="popup-menu-separator"></div>
         <div class="popup-menu-item" id="ctx-join">Join Cells (Ctrl+J)</div>
         <div class="popup-menu-item" id="ctx-split">Split Syllables (Ctrl+K)</div>
@@ -1824,6 +1835,23 @@
         this.contextMenu.style.display = 'none';
         this.clearAllCustomColors();
       };
+
+      // Syllable insertion & deletion (meter alteration)
+      document.getElementById('ctx-syl-ins-before').onclick = () => {
+        this.contextMenu.style.display = 'none';
+        this.insertSyllableInBar(b, pIdx, sIdx, false);
+      };
+      document.getElementById('ctx-syl-ins-after').onclick = () => {
+        this.contextMenu.style.display = 'none';
+        this.insertSyllableInBar(b, pIdx, sIdx, true);
+      };
+      const delBoxBtn = document.getElementById('ctx-syl-delete');
+      if (delBoxBtn && canDeleteBox) {
+        delBoxBtn.onclick = () => {
+          this.contextMenu.style.display = 'none';
+          this.deleteSyllableInBar(b, pIdx, sIdx);
+        };
+      }
 
       // Case transforms
       document.getElementById('ctx-case-upper').onclick = () => {
@@ -2126,6 +2154,63 @@
         this.contextMenu.style.display = 'none';
         this.clearAllCustomColors();
       };
+    }
+
+    insertSyllableInBar(b, pIdx, sIdx, insertAfter = false) {
+      const bar = this.tabs[this.activeTabIdx].bars[b];
+      if (!bar) return;
+
+      this.pushSnapshot();
+
+      // 1. Increment subdivision count in pulseSubdivs
+      bar.notation.pulseSubdivs[pIdx]++;
+
+      // 2. Insert empty syllable in bar.syllables[pIdx]
+      const insertAt = insertAfter ? (sIdx + 1) : sIdx;
+      bar.syllables[pIdx].splice(insertAt, 0, {
+        text: '',
+        bold: false,
+        align: 'center',
+        customColor: null
+      });
+
+      // 3. Clear/set selection
+      this.selectedCells.clear();
+      this.selectedCells.add(`${b}-${pIdx}-${insertAt}`);
+
+      // 4. Render and activate cell editor
+      this.renderPage();
+      this.activateCellEditor(b, pIdx, insertAt);
+    }
+
+    deleteSyllableInBar(b, pIdx, sIdx) {
+      const bar = this.tabs[this.activeTabIdx].bars[b];
+      if (!bar) return;
+
+      if (bar.notation.pulseSubdivs[pIdx] <= 1) return; // Minimum 1 subdivision per pulse
+
+      this.pushSnapshot();
+
+      // 1. Decrement subdivision count in pulseSubdivs
+      bar.notation.pulseSubdivs[pIdx]--;
+
+      // 2. Remove syllable from bar.syllables[pIdx]
+      bar.syllables[pIdx].splice(sIdx, 1);
+
+      // 3. Clamp customSpokenCount if needed
+      if (bar.customSpokenCount != null && bar.customSpokenCount > bar.notation.getTotalSyllables()) {
+        bar.customSpokenCount = bar.notation.getTotalSyllables();
+      }
+
+      // 4. Update selection
+      this.selectedCells.clear();
+      const newSIdx = Math.min(sIdx, bar.syllables[pIdx].length - 1);
+      if (newSIdx >= 0) {
+        this.selectedCells.add(`${b}-${pIdx}-${newSIdx}`);
+      }
+
+      // 5. Render
+      this.renderPage();
     }
 
     clearAllCustomColors() {

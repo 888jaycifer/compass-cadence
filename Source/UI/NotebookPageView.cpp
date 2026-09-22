@@ -200,6 +200,11 @@ void NotebookPageContent::barNotationChanged(int barIndex)
         if (bl->getBarIndex() == barIndex)
         {
             bl->rebuildPulses();
+            const auto& sel = document.getSelectedCells();
+            if (sel.size() == 1 && sel.begin()->first == barIndex)
+            {
+                bl->focusSyllable(sel.begin()->second);
+            }
             break;
         }
     }

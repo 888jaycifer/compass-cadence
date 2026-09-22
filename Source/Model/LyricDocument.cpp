@@ -794,6 +794,231 @@ void LyricDocument::clearAllCustomCellColors(bool notify)
         notifyChanged();
 }
 
+void LyricDocument::insertSyllableInBar(int barIndex, int globalSyllableIndex, bool insertAfter)
+{
+    if (barIndex < 0)
+        return;
+
+    ensureBarCount(barIndex + 1);
+
+    MetricNotation notat = getNotation(barIndex);
+    auto [pulseIdx, sInPulse] = notat.getPulseAndSyllableFromGlobal(globalSyllableIndex);
+    if (pulseIdx < 0 || pulseIdx >= notat.getPulseCount())
+        return;
+
+    pushUndoSnapshot();
+
+    int insertPos = insertAfter ? (globalSyllableIndex + 1) : globalSyllableIndex;
+
+    // 1. Increment subdivision count of this pulse group in this bar's notation
+    int curSubdivs = notat.getSyllablesForPulse(pulseIdx);
+    notat.setSyllablesForPulse(pulseIdx, curSubdivs + 1);
+    barNotations[barIndex] = notat;
+
+    // 2. Shift syllables in barData
+    auto& syllables = barData[barIndex];
+    if (insertPos < (int)syllables.size())
+    {
+        syllables.insert(syllables.begin() + insertPos, juce::String());
+    }
+    else
+    {
+        syllables.resize(insertPos + 1, juce::String());
+    }
+
+    // 3. Shift boldCells
+    std::vector<int> bShift;
+    for (auto it = boldCells.begin(); it != boldCells.end(); )
+    {
+        if (it->first == barIndex && it->second >= insertPos)
+        {
+            bShift.push_back(it->second);
+            it = boldCells.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+    for (int idx : bShift)
+        boldCells.insert({ barIndex, idx + 1 });
+
+    // 4. Shift cellAlignments
+    std::vector<std::pair<int, CellAlignment>> aShift;
+    for (auto it = cellAlignments.begin(); it != cellAlignments.end(); )
+    {
+        if (it->first.first == barIndex && it->first.second >= insertPos)
+        {
+            aShift.push_back({ it->first.second, it->second });
+            it = cellAlignments.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+    for (const auto& p : aShift)
+        cellAlignments[{ barIndex, p.first + 1 }] = p.second;
+
+    // 5. Shift customCellColors
+    std::vector<std::pair<int, juce::Colour>> cShift;
+    for (auto it = customCellColors.begin(); it != customCellColors.end(); )
+    {
+        if (it->first.first == barIndex && it->first.second >= insertPos)
+        {
+            cShift.push_back({ it->first.second, it->second });
+            it = customCellColors.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+    for (const auto& p : cShift)
+        customCellColors[{ barIndex, p.first + 1 }] = p.second;
+
+    // 6. Shift selectedCells
+    selectedCells.clear();
+    selectedCells.insert({ barIndex, insertPos });
+
+    // 7. Refresh & Notify
+    refreshRhymes();
+    notifyBarNotationChanged(barIndex);
+    notifyChanged();
+    notifySelectionChanged();
+}
+
+void LyricDocument::deleteSyllableInBar(int barIndex, int globalSyllableIndex)
+{
+    if (barIndex < 0)
+        return;
+
+    MetricNotation notat = getNotation(barIndex);
+    auto [pulseIdx, sInPulse] = notat.getPulseAndSyllableFromGlobal(globalSyllableIndex);
+    if (pulseIdx < 0 || pulseIdx >= notat.getPulseCount())
+        return;
+
+    int curSubdivs = notat.getSyllablesForPulse(pulseIdx);
+    if (curSubdivs <= 1)
+        return; // Don't reduce pulse subdivisions below 1
+
+    pushUndoSnapshot();
+
+    // 1. Decrement subdivision count in notation
+    notat.setSyllablesForPulse(pulseIdx, curSubdivs - 1);
+    barNotations[barIndex] = notat;
+
+    // 2. Erase syllable at globalSyllableIndex and shift left
+    auto it = barData.find(barIndex);
+    if (it != barData.end() && globalSyllableIndex < (int)it->second.size())
+    {
+        it->second.erase(it->second.begin() + globalSyllableIndex);
+    }
+
+    // 3. Shift boldCells
+    std::vector<int> bShift;
+    for (auto bit = boldCells.begin(); bit != boldCells.end(); )
+    {
+        if (bit->first == barIndex)
+        {
+            if (bit->second == globalSyllableIndex)
+            {
+                bit = boldCells.erase(bit);
+            }
+            else if (bit->second > globalSyllableIndex)
+            {
+                bShift.push_back(bit->second);
+                bit = boldCells.erase(bit);
+            }
+            else
+            {
+                ++bit;
+            }
+        }
+        else
+        {
+            ++bit;
+        }
+    }
+    for (int idx : bShift)
+        boldCells.insert({ barIndex, idx - 1 });
+
+    // 4. Shift cellAlignments
+    std::vector<std::pair<int, CellAlignment>> aShift;
+    for (auto ait = cellAlignments.begin(); ait != cellAlignments.end(); )
+    {
+        if (ait->first.first == barIndex)
+        {
+            if (ait->first.second == globalSyllableIndex)
+            {
+                ait = cellAlignments.erase(ait);
+            }
+            else if (ait->first.second > globalSyllableIndex)
+            {
+                aShift.push_back({ ait->first.second, ait->second });
+                ait = cellAlignments.erase(ait);
+            }
+            else
+            {
+                ++ait;
+            }
+        }
+        else
+        {
+            ++ait;
+        }
+    }
+    for (const auto& p : aShift)
+        cellAlignments[{ barIndex, p.first - 1 }] = p.second;
+
+    // 5. Shift customCellColors
+    std::vector<std::pair<int, juce::Colour>> cShift;
+    for (auto cit = customCellColors.begin(); cit != customCellColors.end(); )
+    {
+        if (cit->first.first == barIndex)
+        {
+            if (cit->first.second == globalSyllableIndex)
+            {
+                cit = customCellColors.erase(cit);
+            }
+            else if (cit->first.second > globalSyllableIndex)
+            {
+                cShift.push_back({ cit->first.second, cit->second });
+                cit = customCellColors.erase(cit);
+            }
+            else
+            {
+                ++cit;
+            }
+        }
+        else
+        {
+            ++cit;
+        }
+    }
+    for (const auto& p : cShift)
+        customCellColors[{ barIndex, p.first - 1 }] = p.second;
+
+    // 6. Shift selectedCells
+    selectedCells.clear();
+    int newTotal = notat.getTotalSyllables();
+    int newSelIdx = std::clamp(globalSyllableIndex, 0, std::max(0, newTotal - 1));
+    selectedCells.insert({ barIndex, newSelIdx });
+
+    // 7. Clamp customSpokenSyllableCounts
+    auto spIt = customSpokenSyllableCounts.find(barIndex);
+    if (spIt != customSpokenSyllableCounts.end() && spIt->second > newTotal)
+    {
+        spIt->second = newTotal;
+    }
+
+    // 8. Refresh & Notify
+    refreshRhymes();
+    notifyBarNotationChanged(barIndex);
+    notifyChanged();
+    notifySelectionChanged();
+}
+
 static juce::String toTitleCaseString(const juce::String& text)
 {
     if (text.isEmpty())

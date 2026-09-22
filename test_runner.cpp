@@ -940,6 +940,81 @@ int main(int argc, char* argv[])
 
             std::cout << "  [10.26] 3-Mode Rhyme Toggle & Syllable Repetition Detector (2+ Syllables) passed!" << std::endl;
         }
+
+        // [10.27] Direct Syllable Insertion & Deletion (Individual Line Meter Altering)
+        {
+            CompassCadence::LyricDocument docMeter;
+            // Setup bar 0 with initial meter [333222]/6:4 (15 syllables)
+            auto initMeter = CompassCadence::MetricNotation::fromNotationString("[333222]/6:4", 4);
+            docMeter.setBarNotation(0, initMeter);
+            docMeter.setSyllable(0, 0, "to");
+            docMeter.setSyllable(0, 1, "ca");
+            docMeter.setSyllable(0, 2, "dence");
+            docMeter.setSyllable(0, 3, "in");
+            docMeter.setSyllable(0, 4, "side");
+
+            // 1. Insert syllable BEFORE cell 1 ("ca") in pulse 0 (which has 3 subdivisions)
+            // Pulse 0 subdivisions should increase from 3 to 4, meter becomes [433222]/6:4
+            docMeter.insertSyllableInBar(0, 1, false);
+            jassert(docMeter.getNotation(0).toNotationString() == "[433222]/6:4");
+            jassert(docMeter.getNotation(0).getSyllablesForPulse(0) == 4);
+            jassert(docMeter.getNotation(0).getTotalSyllables() == 16);
+            jassert(docMeter.getSyllable(0, 0) == "to");
+            jassert(docMeter.getSyllable(0, 1).isEmpty()); // Newly inserted box
+            jassert(docMeter.getSyllable(0, 2) == "ca");   // Shifted right
+            jassert(docMeter.getSyllable(0, 3) == "dence");
+            jassert(docMeter.getSyllable(0, 4) == "in");
+            jassert(docMeter.getSyllable(0, 5) == "side");
+
+            // 2. Insert syllable AFTER cell 5 ("side") in pulse 1
+            // Pulse 1 currently has 3 subdivisions. Inserting after cell 5 makes pulse 1 have 4 subdivisions.
+            // Meter becomes [443222]/6:4
+            docMeter.insertSyllableInBar(0, 5, true);
+            jassert(docMeter.getNotation(0).toNotationString() == "[443222]/6:4");
+            jassert(docMeter.getNotation(0).getSyllablesForPulse(1) == 4);
+            jassert(docMeter.getNotation(0).getTotalSyllables() == 17);
+            jassert(docMeter.getSyllable(0, 5) == "side");
+            jassert(docMeter.getSyllable(0, 6).isEmpty()); // Newly inserted box
+
+            // 3. Delete newly inserted box at cell 6
+            // Pulse 1 subdivisions should decrease from 4 back to 3, meter becomes [433222]/6:4
+            docMeter.deleteSyllableInBar(0, 6);
+            jassert(docMeter.getNotation(0).toNotationString() == "[433222]/6:4");
+            jassert(docMeter.getNotation(0).getSyllablesForPulse(1) == 3);
+            jassert(docMeter.getNotation(0).getTotalSyllables() == 16);
+
+            // 4. Delete syllable at cell 1 (the empty one inserted in step 1)
+            // Pulse 0 subdivisions should decrease from 4 back to 3, meter returns to [333222]/6:4
+            docMeter.deleteSyllableInBar(0, 1);
+            jassert(docMeter.getNotation(0).toNotationString() == "[333222]/6:4");
+            jassert(docMeter.getNotation(0).getSyllablesForPulse(0) == 3);
+            jassert(docMeter.getNotation(0).getTotalSyllables() == 15);
+            jassert(docMeter.getSyllable(0, 0) == "to");
+            jassert(docMeter.getSyllable(0, 1) == "ca");
+            jassert(docMeter.getSyllable(0, 2) == "dence");
+            jassert(docMeter.getSyllable(0, 3) == "in");
+            jassert(docMeter.getSyllable(0, 4) == "side");
+
+            // 5. Verify cannot delete when pulse subdivisions <= 1
+            auto singleMeter = CompassCadence::MetricNotation::fromNotationString("[1111]/4:4", 4);
+            docMeter.setBarNotation(1, singleMeter);
+            docMeter.deleteSyllableInBar(1, 0); // should be a no-op
+            jassert(docMeter.getNotation(1).getSyllablesForPulse(0) == 1);
+            jassert(docMeter.getNotation(1).toNotationString() == "[1111]/4:4");
+
+            // 6. Undo / Redo restores exact meter and syllables
+            docMeter.undo(); // undo setBarNotation(1)
+            docMeter.undo(); // undo delete cell 1
+            jassert(docMeter.getNotation(0).toNotationString() == "[433222]/6:4");
+            jassert(docMeter.getSyllable(0, 1).isEmpty());
+            jassert(docMeter.getSyllable(0, 2) == "ca");
+
+            docMeter.redo(); // redo delete cell 1
+            jassert(docMeter.getNotation(0).toNotationString() == "[333222]/6:4");
+            jassert(docMeter.getSyllable(0, 1) == "ca");
+
+            std::cout << "  [10.27] Direct Syllable Insertion & Deletion (Individual Line Meter Altering) passed!" << std::endl;
+        }
         proc.reset();
         std::cout << "[11] Clean teardown succeeded!" << std::endl;
     }
