@@ -1,5 +1,5 @@
 // Compass Cadence Service Worker (Offline PWA support - Network-First)
-const CACHE_NAME = 'compass-cadence-v6';
+const CACHE_NAME = 'compass-cadence-v7';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

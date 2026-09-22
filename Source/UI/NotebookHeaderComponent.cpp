@@ -616,12 +616,15 @@ void NotebookHeaderComponent::showColorModeMenu()
     menu.addItem(1, "Rhymes (Phonetic Vowels)", true, curMode == RhymeClassifier::ColorMode::Rhymes);
     menu.addItem(2, "Repeats (2+ Exact Syllables)", true, curMode == RhymeClassifier::ColorMode::Repeats);
     menu.addItem(3, "Colors OFF", true, curMode == RhymeClassifier::ColorMode::Off);
+    menu.addSeparator();
+    menu.addItem(4, "Clear All Custom Cell Colors (Reset to Auto)");
 
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&rhymeToggleBtn), [this](int result) {
         if (document == nullptr || result == 0) return;
-        if (result == 1) document->getRhymeClassifier().setColorMode(RhymeClassifier::ColorMode::Rhymes);
-        else if (result == 2) document->getRhymeClassifier().setColorMode(RhymeClassifier::ColorMode::Repeats);
-        else if (result == 3) document->getRhymeClassifier().setColorMode(RhymeClassifier::ColorMode::Off);
+        if (result == 1) document->setColorMode(RhymeClassifier::ColorMode::Rhymes);
+        else if (result == 2) document->setColorMode(RhymeClassifier::ColorMode::Repeats);
+        else if (result == 3) document->setColorMode(RhymeClassifier::ColorMode::Off);
+        else if (result == 4) document->clearAllCustomCellColors();
 
         updateRhymeButtonDisplay();
         document->refreshRhymes();

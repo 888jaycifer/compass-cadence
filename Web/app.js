@@ -1109,29 +1109,33 @@
             cell.id = `cell-${b}-${pIdx}-${sIdx}`;
 
             // Rhyme, Repeat, or Custom Highlight Tint
-            if (syl.customColor) {
-              cell.style.backgroundColor = syl.customColor;
+            if (this.colorMode === 'off') {
+              // Strictly no cell highlights in Colors Off mode
             } else if (this.colorMode === 'repeats') {
               const repColor = repeatCellMap.get(`${b}-${pIdx}-${sIdx}`);
               if (repColor) {
                 cell.style.backgroundColor = repColor;
               }
-            } else if (this.colorMode === 'rhymes' && syl.text.trim()) {
-              let prevSyl = '', nextSyl = '';
-              const allSylsInBar = [];
-              bar.syllables.forEach(p => p.forEach(s => allSylsInBar.push(s)));
-              let curLinearIdx = -1;
-              let counter = 0;
-              bar.syllables.forEach((p, pi) => p.forEach((s, si) => {
-                if (pi === pIdx && si === sIdx) curLinearIdx = counter;
-                counter++;
-              }));
-              if (curLinearIdx > 0 && allSylsInBar[curLinearIdx - 1]) prevSyl = allSylsInBar[curLinearIdx - 1].text.trim();
-              if (curLinearIdx + 1 < allSylsInBar.length && allSylsInBar[curLinearIdx + 1]) nextSyl = allSylsInBar[curLinearIdx + 1].text.trim();
+            } else if (this.colorMode === 'rhymes') {
+              if (syl.customColor && syl.customColor !== 'transparent') {
+                cell.style.backgroundColor = syl.customColor;
+              } else if (!syl.customColor && syl.text.trim()) {
+                let prevSyl = '', nextSyl = '';
+                const allSylsInBar = [];
+                bar.syllables.forEach(p => p.forEach(s => allSylsInBar.push(s)));
+                let curLinearIdx = -1;
+                let counter = 0;
+                bar.syllables.forEach((p, pi) => p.forEach((s, si) => {
+                  if (pi === pIdx && si === sIdx) curLinearIdx = counter;
+                  counter++;
+                }));
+                if (curLinearIdx > 0 && allSylsInBar[curLinearIdx - 1]) prevSyl = allSylsInBar[curLinearIdx - 1].text.trim();
+                if (curLinearIdx + 1 < allSylsInBar.length && allSylsInBar[curLinearIdx + 1]) nextSyl = allSylsInBar[curLinearIdx + 1].text.trim();
 
-              const rKey = RhymeClassifier.extractRhymeKeyWithContext(syl.text.trim(), prevSyl, nextSyl);
-              if (rKey) {
-                cell.style.backgroundColor = this.getVowelColor(rKey);
+                const rKey = RhymeClassifier.extractRhymeKeyWithContext(syl.text.trim(), prevSyl, nextSyl);
+                if (rKey) {
+                  cell.style.backgroundColor = this.getVowelColor(rKey);
+                }
               }
             }
 
@@ -1730,6 +1734,7 @@
             `).join('')}
             <div class="popup-menu-separator"></div>
             <div class="popup-menu-item" id="ctx-col-clear">Clear Highlight (None)</div>
+            <div class="popup-menu-item" id="ctx-col-clear-all">Clear All Custom Colors in Song</div>
             <div class="popup-menu-item" id="ctx-vowel-customizer">Customize Vowel Color Scheme...</div>
           </div>
         </div>
@@ -1813,6 +1818,11 @@
         applyToSelection(s => s.customColor = 'transparent');
         this.contextMenu.style.display = 'none';
         this.renderPage();
+      };
+      const clearAllSongBtn = document.getElementById('ctx-col-clear-all');
+      if (clearAllSongBtn) clearAllSongBtn.onclick = () => {
+        this.contextMenu.style.display = 'none';
+        this.clearAllCustomColors();
       };
 
       // Case transforms
@@ -2091,6 +2101,10 @@
         <div class="popup-menu-item ${this.colorMode === 'off' ? 'active-item' : ''}" id="cm-off">
           ${this.colorMode === 'off' ? '✓ ' : '&nbsp;&nbsp;'}Colors Off
         </div>
+        <div class="popup-menu-separator"></div>
+        <div class="popup-menu-item" id="cm-clear-all">
+          Clear All Custom Colors (Reset to Auto)
+        </div>
       `;
       this.contextMenu.style.display = 'block';
 
@@ -2107,6 +2121,25 @@
       if (repeatsEl) repeatsEl.onclick = () => selectMode('repeats');
       const offEl = document.getElementById('cm-off');
       if (offEl) offEl.onclick = () => selectMode('off');
+      const clearAllEl = document.getElementById('cm-clear-all');
+      if (clearAllEl) clearAllEl.onclick = () => {
+        this.contextMenu.style.display = 'none';
+        this.clearAllCustomColors();
+      };
+    }
+
+    clearAllCustomColors() {
+      this.pushSnapshot();
+      this.tabs.forEach(tab => {
+        tab.bars.forEach(bar => {
+          bar.syllables.forEach(pulseArr => {
+            pulseArr.forEach(s => {
+              s.customColor = null;
+            });
+          });
+        });
+      });
+      this.renderPage();
     }
 
     showPresetMenu(e) {

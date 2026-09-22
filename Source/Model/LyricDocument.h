@@ -127,6 +127,7 @@ public:
     void clearCustomCellColor(int barIndex, int globalSyllableIndex, bool notify = true);
     void setSelectionCustomColor(const juce::Colour& color);
     void clearSelectionCustomColor();
+    void clearAllCustomCellColors(bool notify = true);
 
     // Text casing transforms
     enum CaseTransform

@@ -500,20 +500,33 @@ void SyllableCellComponent::setPlayheadActive(bool active)
 void SyllableCellComponent::updateContent()
 {
     currentText = document.getSyllable(barIndex, globalSyllableIndex);
-    if (document.hasCustomCellColor(barIndex, globalSyllableIndex))
-    {
-        rhymeHighlight = document.getCustomCellColor(barIndex, globalSyllableIndex);
-    }
-    else
-    {
-        juce::String prevSyl, nextSyl;
-        if (globalSyllableIndex > 0)
-            prevSyl = document.getSyllable(barIndex, globalSyllableIndex - 1).trim();
-        int totalSyls = document.getNotation(barIndex).getTotalSyllables();
-        if (globalSyllableIndex + 1 < totalSyls)
-            nextSyl = document.getSyllable(barIndex, globalSyllableIndex + 1).trim();
 
-        rhymeHighlight = document.getRhymeClassifier().getHighlightForCell(barIndex, globalSyllableIndex, currentText, prevSyl, nextSyl);
+    auto colorMode = document.getRhymeClassifier().getColorMode();
+    if (colorMode == RhymeClassifier::ColorMode::Off)
+    {
+        rhymeHighlight = juce::Colours::transparentBlack;
+    }
+    else if (colorMode == RhymeClassifier::ColorMode::Repeats)
+    {
+        rhymeHighlight = document.getRhymeClassifier().getHighlightForCell(barIndex, globalSyllableIndex, currentText, {}, {});
+    }
+    else // ColorMode::Rhymes
+    {
+        if (document.hasCustomCellColor(barIndex, globalSyllableIndex))
+        {
+            rhymeHighlight = document.getCustomCellColor(barIndex, globalSyllableIndex);
+        }
+        else
+        {
+            juce::String prevSyl, nextSyl;
+            if (globalSyllableIndex > 0)
+                prevSyl = document.getSyllable(barIndex, globalSyllableIndex - 1).trim();
+            int totalSyls = document.getNotation(barIndex).getTotalSyllables();
+            if (globalSyllableIndex + 1 < totalSyls)
+                nextSyl = document.getSyllable(barIndex, globalSyllableIndex + 1).trim();
+
+            rhymeHighlight = document.getRhymeClassifier().getHighlightForCell(barIndex, globalSyllableIndex, currentText, prevSyl, nextSyl);
+        }
     }
 
     if (!isMouseOver(true))
@@ -662,6 +675,7 @@ void SyllableCellComponent::showContextMenu(const juce::MouseEvent&)
 
     colorSubMenu.addSeparator();
     colorSubMenu.addItem(108, "Clear Highlight (None)");
+    colorSubMenu.addItem(111, "Clear All Custom Colors in Song");
     colorSubMenu.addItem(109, "Custom Cell Color...");
     colorSubMenu.addItem(110, "Customize Vowel Color Scheme...");
     menu.addSubMenu("Highlight Color", colorSubMenu);
@@ -732,6 +746,11 @@ void SyllableCellComponent::showContextMenu(const juce::MouseEvent&)
                 document.setSelectionCustomColor(juce::Colours::transparentBlack);
             else
                 document.setCustomCellColor(barIndex, globalSyllableIndex, juce::Colours::transparentBlack);
+            updateContent();
+        }
+        else if (result == 111) // Clear All Custom Colors in Song
+        {
+            document.clearAllCustomCellColors();
             updateContent();
         }
         else if (result == 109) // Custom Color Picker
@@ -1196,14 +1215,10 @@ void SyllableCellComponent::paint(juce::Graphics& g)
     auto bounds = getLocalBounds().toFloat();
 
     // 1. Rhyme Scheme / Custom Color Highlighter Tint (if any)
-    if (!rhymeHighlight.isTransparent())
+    if (!rhymeHighlight.isTransparent() && document.getRhymeClassifier().isEnabled())
     {
-        bool isCustom = document.hasCustomCellColor(barIndex, globalSyllableIndex);
-        if (isCustom || document.getRhymeClassifier().isEnabled())
-        {
-            g.setColour(rhymeHighlight);
-            g.fillRoundedRectangle(bounds.reduced(1.0f), 2.0f);
-        }
+        g.setColour(rhymeHighlight);
+        g.fillRoundedRectangle(bounds.reduced(1.0f), 2.0f);
     }
 
     // 2. Multi-box Selection Highlight

@@ -780,6 +780,20 @@ void LyricDocument::clearSelectionCustomColor()
     notifyChanged();
 }
 
+void LyricDocument::clearAllCustomCellColors(bool notify)
+{
+    if (customCellColors.empty())
+        return;
+
+    if (notify)
+        pushUndoSnapshot();
+
+    customCellColors.clear();
+
+    if (notify)
+        notifyChanged();
+}
+
 static juce::String toTitleCaseString(const juce::String& text)
 {
     if (text.isEmpty())
