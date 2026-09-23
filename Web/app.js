@@ -499,6 +499,9 @@
       this.viewMode = 'scroll'; // 'scroll' (default) or 'pages'
       this.darkMode = true;
       this.colorMode = 'rhymes'; // 'off' | 'rhymes' | 'repeats'
+      this.minRepeatLength = 2; // 2, 3, or 4
+      this.hiddenColorCells = new Set(); // Set of "b-p-s" keys
+      this.repeatSpans = new Map(); // key: "b-p-s" -> array of "b-p-s" in sequence
       this.followDAW = true;
       this.autoSplitEnabled = true;
       this.isDraggingSelection = false;
@@ -1058,8 +1061,10 @@
         this.pageLabel.textContent = `Bars 1-${tab.bars.length}`;
       }
 
-      // Repetition map for 'repeats' color mode (exact syllable sequences of length >= 2)
+      // Repetition map for 'repeats' color mode (exact syllable sequences of length >= minRepeatLength)
       const repeatCellMap = new Map(); // key: `${b}-${pIdx}-${sIdx}` -> color string
+      this.repeatSpans = new Map();
+
       if (this.colorMode === 'repeats') {
         const tokens = [];
         const cleanSyl = (str) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -1069,7 +1074,7 @@
             pulseArr.forEach((syl, sIdx) => {
               const cleaned = cleanSyl(syl.text);
               if (cleaned) {
-                tokens.push({ b: bIdx, p: pIdx, s: sIdx, clean: cleaned });
+                tokens.push({ b: bIdx, p: pIdx, s: sIdx, clean: cleaned, key: `${bIdx}-${pIdx}-${sIdx}` });
               }
             });
           });
@@ -1103,24 +1108,43 @@
                 L++;
               }
 
-              if (L >= 2) {
-                let phraseKey = '';
-                for (let m = 0; m < L; ++m) {
-                  phraseKey += tokens[i + m].clean + '|';
-                }
-
-                let phraseCol = phraseColours.get(phraseKey);
-                if (!phraseCol) {
-                  phraseCol = palette[nextColorIdx % palette.length];
-                  phraseColours.set(phraseKey, phraseCol);
-                  nextColorIdx++;
-                }
+              if (L >= this.minRepeatLength) {
+                const spanI = [];
+                const spanJ = [];
+                let spanIHidden = false;
+                let spanJHidden = false;
 
                 for (let m = 0; m < L; ++m) {
-                  const keyI = `${tokens[i + m].b}-${tokens[i + m].p}-${tokens[i + m].s}`;
-                  const keyJ = `${tokens[j + m].b}-${tokens[j + m].p}-${tokens[j + m].s}`;
-                  if (!repeatCellMap.has(keyI)) repeatCellMap.set(keyI, phraseCol);
-                  if (!repeatCellMap.has(keyJ)) repeatCellMap.set(keyJ, phraseCol);
+                  const kI = tokens[i + m].key;
+                  const kJ = tokens[j + m].key;
+                  spanI.push(kI);
+                  spanJ.push(kJ);
+                  if (this.hiddenColorCells.has(kI)) spanIHidden = true;
+                  if (this.hiddenColorCells.has(kJ)) spanJHidden = true;
+                }
+
+                // Always record span geometry for right-click toggling
+                for (const k of spanI) this.repeatSpans.set(k, spanI);
+                for (const k of spanJ) this.repeatSpans.set(k, spanJ);
+
+                // Only color instances that are not hidden
+                if (!spanIHidden && !spanJHidden) {
+                  let phraseKey = '';
+                  for (let m = 0; m < L; ++m) phraseKey += tokens[i + m].clean + '|';
+
+                  let phraseCol = phraseColours.get(phraseKey);
+                  if (!phraseCol) {
+                    phraseCol = palette[nextColorIdx % palette.length];
+                    phraseColours.set(phraseKey, phraseCol);
+                    nextColorIdx++;
+                  }
+
+                  for (const k of spanI) {
+                    if (!repeatCellMap.has(k)) repeatCellMap.set(k, phraseCol);
+                  }
+                  for (const k of spanJ) {
+                    if (!repeatCellMap.has(k)) repeatCellMap.set(k, phraseCol);
+                  }
                 }
               }
             }
@@ -1170,20 +1194,21 @@
           pulseArr.forEach((syl, sIdx) => {
             const cell = document.createElement('div');
             cell.className = 'syllable-cell';
-            cell.id = `cell-${b}-${pIdx}-${sIdx}`;
+            const cellKey = `${b}-${pIdx}-${sIdx}`;
+            cell.id = `cell-${cellKey}`;
 
             // Rhyme, Repeat, or Custom Highlight Tint
             if (this.colorMode === 'off') {
               // Strictly no cell highlights in Colors Off mode
             } else if (this.colorMode === 'repeats') {
-              const repColor = repeatCellMap.get(`${b}-${pIdx}-${sIdx}`);
-              if (repColor) {
+              const repColor = repeatCellMap.get(cellKey);
+              if (repColor && !this.hiddenColorCells.has(cellKey)) {
                 cell.style.backgroundColor = repColor;
               }
             } else if (this.colorMode === 'rhymes') {
               if (syl.customColor && syl.customColor !== 'transparent') {
                 cell.style.backgroundColor = syl.customColor;
-              } else if (!syl.customColor && syl.text.trim()) {
+              } else if (!syl.customColor && syl.text.trim() && !this.hiddenColorCells.has(cellKey)) {
                 let prevSyl = '', nextSyl = '';
                 const allSylsInBar = [];
                 bar.syllables.forEach(p => p.forEach(s => allSylsInBar.push(s)));
@@ -1870,6 +1895,8 @@
       this.contextMenu.style.left = `${Math.min(x, window.innerWidth - 220)}px`;
       this.contextMenu.style.top = `${Math.min(y, window.innerHeight - 380)}px`;
 
+      const cellKey = `${b}-${pIdx}-${sIdx}`;
+      const isSeqHidden = this.hiddenColorCells.has(cellKey);
       const canDeleteBox = bar.notation.pulseSubdivs[pIdx] > 1;
       const VIVID_SWATCHES = ['#EF4444', '#F97316', '#F59E0B', '#84CC16', '#22C55E', '#10B981', '#06B6D4', '#3B82F6', '#6366F1', '#8B5CF6', '#D946EF', '#F43F5E'];
       this.contextMenu.innerHTML = `
@@ -1899,6 +1926,11 @@
              </div>
           </div>
         </div>
+        <div class="popup-menu-item ${isSeqHidden ? 'active-item' : ''}" id="ctx-hide-seq">
+          ${isSeqHidden ? '✓ ' : '&nbsp;&nbsp;'}Hide Rhyme Color Pair for This Sequence
+        </div>
+        ${this.hiddenColorCells.size > 0 ? `<div class="popup-menu-item" id="ctx-unhide-all">Unhide All Rhyme Color Pairs</div>` : ''}
+        <div class="popup-menu-separator"></div>
         <div class="popup-submenu-container">
           <div class="popup-menu-item">Transform Text ▶</div>
           <div class="popup-submenu">
@@ -1939,6 +1971,31 @@
            fn(syl, b, pIdx, sIdx);
         }
       };
+
+      const hideSeqBtn = document.getElementById('ctx-hide-seq');
+      if (hideSeqBtn) {
+        hideSeqBtn.onclick = () => {
+          this.pushSnapshot();
+          const span = this.repeatSpans.get(cellKey) || [cellKey];
+          if (isSeqHidden) {
+            span.forEach(k => this.hiddenColorCells.delete(k));
+          } else {
+            span.forEach(k => this.hiddenColorCells.add(k));
+          }
+          this.contextMenu.style.display = 'none';
+          this.renderPage();
+        };
+      }
+
+      const unhideAllBtn = document.getElementById('ctx-unhide-all');
+      if (unhideAllBtn) {
+        unhideAllBtn.onclick = () => {
+          this.pushSnapshot();
+          this.hiddenColorCells.clear();
+          this.contextMenu.style.display = 'none';
+          this.renderPage();
+        };
+      }
 
       // Color actions
       document.getElementById('ctx-col-auto').onclick = () => {
@@ -2202,8 +2259,16 @@
       this.vowelPaletteDialog.innerHTML = `
         <div class="modal-content" onclick="event.stopPropagation()">
           <div class="modal-header">
-            <h3>Customize Vowel Color Scheme</h3>
+            <h3>Customize Color Palette & Repetition Rules</h3>
             <button class="vst-btn" id="vowel-palette-close-btn" style="font-size:16px;line-height:1;padding:2px 8px;">&times;</button>
+          </div>
+          <div class="vowel-palette-repeats-row" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--notebook-rule);margin-bottom:8px;">
+            <span style="font-weight:600;font-size:13px;color:var(--text-main);">Repeats Minimum Syllables:</span>
+            <div style="display:flex;gap:4px;">
+              <button class="vst-btn ${this.minRepeatLength === 2 ? 'toggled' : ''}" id="vowel-rep-2" style="font-size:11px;padding:3px 8px;">2+ Syllables</button>
+              <button class="vst-btn ${this.minRepeatLength === 3 ? 'toggled' : ''}" id="vowel-rep-3" style="font-size:11px;padding:3px 8px;">3+ Syllables</button>
+              <button class="vst-btn ${this.minRepeatLength === 4 ? 'toggled' : ''}" id="vowel-rep-4" style="font-size:11px;padding:3px 8px;">4+ Syllables</button>
+            </div>
           </div>
           <div class="modal-body" id="vowel-palette-body"></div>
           <div class="modal-footer">
@@ -2212,6 +2277,24 @@
           </div>
         </div>
       `;
+
+      const setupRepeatBtns = () => {
+        [2, 3, 4].forEach((len) => {
+          const btn = document.getElementById(`vowel-rep-${len}`);
+          if (btn) {
+            btn.onclick = () => {
+              this.minRepeatLength = len;
+              [2, 3, 4].forEach(l => {
+                const b = document.getElementById(`vowel-rep-${l}`);
+                if (b) b.classList.toggle('toggled', l === len);
+              });
+              this.updateColorModeButton();
+              this.renderPage();
+            };
+          }
+        });
+      };
+      setupRepeatBtns();
 
       renderBody();
 
@@ -2360,8 +2443,8 @@
         this.rhymeToggleBtn.title = 'Color Mode: Phonetic Rhymes (Click to cycle, right-click for menu)';
       } else if (this.colorMode === 'repeats') {
         this.rhymeToggleBtn.classList.add('toggled');
-        this.rhymeToggleBtn.textContent = 'Repeats: 2+';
-        this.rhymeToggleBtn.title = 'Color Mode: Exact Syllable Repetitions 2+ (Click to cycle, right-click for menu)';
+        this.rhymeToggleBtn.textContent = `Repeats: ${this.minRepeatLength}+`;
+        this.rhymeToggleBtn.title = `Color Mode: Exact Syllable Repetitions (${this.minRepeatLength}+) (Click to cycle, right-click for menu)`;
       } else {
         this.rhymeToggleBtn.classList.remove('toggled');
         this.rhymeToggleBtn.textContent = 'Colors: OFF';
@@ -2380,24 +2463,43 @@
       this.contextMenu.innerHTML = `
         <div class="popup-menu-header">Highlight Color Mode</div>
         <div class="popup-menu-item ${this.colorMode === 'rhymes' ? 'active-item' : ''}" id="cm-rhymes">
-          ${this.colorMode === 'rhymes' ? '✓ ' : '&nbsp;&nbsp;'}Phonetic Rhymes (Vowel Sounds)
+          ${this.colorMode === 'rhymes' ? '✓ ' : '&nbsp;&nbsp;'}Rhymes (Phonetic Vowels)
         </div>
-        <div class="popup-menu-item ${this.colorMode === 'repeats' ? 'active-item' : ''}" id="cm-repeats">
-          ${this.colorMode === 'repeats' ? '✓ ' : '&nbsp;&nbsp;'}Repetition Detector (2+ Syllables)
+        <div class="popup-submenu-container">
+          <div class="popup-menu-item ${this.colorMode === 'repeats' ? 'active-item' : ''}">
+            ${this.colorMode === 'repeats' ? '✓ ' : '&nbsp;&nbsp;'}Repeats (Exact Matches) ▶
+          </div>
+          <div class="popup-submenu" style="width: 150px;">
+            <div class="popup-menu-item ${this.colorMode === 'repeats' && this.minRepeatLength === 2 ? 'active-item' : ''}" id="cm-rep-2">
+              ${this.colorMode === 'repeats' && this.minRepeatLength === 2 ? '✓ ' : '&nbsp;&nbsp;'}2+ Syllables
+            </div>
+            <div class="popup-menu-item ${this.colorMode === 'repeats' && this.minRepeatLength === 3 ? 'active-item' : ''}" id="cm-rep-3">
+              ${this.colorMode === 'repeats' && this.minRepeatLength === 3 ? '✓ ' : '&nbsp;&nbsp;'}3+ Syllables
+            </div>
+            <div class="popup-menu-item ${this.colorMode === 'repeats' && this.minRepeatLength === 4 ? 'active-item' : ''}" id="cm-rep-4">
+              ${this.colorMode === 'repeats' && this.minRepeatLength === 4 ? '✓ ' : '&nbsp;&nbsp;'}4+ Syllables
+            </div>
+          </div>
         </div>
         <div class="popup-menu-separator"></div>
         <div class="popup-menu-item ${this.colorMode === 'off' ? 'active-item' : ''}" id="cm-off">
           ${this.colorMode === 'off' ? '✓ ' : '&nbsp;&nbsp;'}Colors Off
         </div>
         <div class="popup-menu-separator"></div>
+        ${this.hiddenColorCells.size > 0 ? `
+          <div class="popup-menu-item" id="cm-unhide-all">
+            Unhide All Rhyme Color Pairs / Sequences
+          </div>
+        ` : ''}
         <div class="popup-menu-item" id="cm-clear-all">
           Clear All Custom Colors (Reset to Auto)
         </div>
       `;
       this.contextMenu.style.display = 'block';
 
-      const selectMode = (mode) => {
+      const selectMode = (mode, minLen = null) => {
         this.colorMode = mode;
+        if (minLen !== null) this.minRepeatLength = minLen;
         this.updateColorModeButton();
         this.renderPage();
         this.contextMenu.style.display = 'none';
@@ -2405,10 +2507,21 @@
 
       const rhymesEl = document.getElementById('cm-rhymes');
       if (rhymesEl) rhymesEl.onclick = () => selectMode('rhymes');
-      const repeatsEl = document.getElementById('cm-repeats');
-      if (repeatsEl) repeatsEl.onclick = () => selectMode('repeats');
+      const rep2El = document.getElementById('cm-rep-2');
+      if (rep2El) rep2El.onclick = () => selectMode('repeats', 2);
+      const rep3El = document.getElementById('cm-rep-3');
+      if (rep3El) rep3El.onclick = () => selectMode('repeats', 3);
+      const rep4El = document.getElementById('cm-rep-4');
+      if (rep4El) rep4El.onclick = () => selectMode('repeats', 4);
       const offEl = document.getElementById('cm-off');
       if (offEl) offEl.onclick = () => selectMode('off');
+      const unhideAllEl = document.getElementById('cm-unhide-all');
+      if (unhideAllEl) unhideAllEl.onclick = () => {
+        this.pushSnapshot();
+        this.hiddenColorCells.clear();
+        this.contextMenu.style.display = 'none';
+        this.renderPage();
+      };
       const clearAllEl = document.getElementById('cm-clear-all');
       if (clearAllEl) clearAllEl.onclick = () => {
         this.contextMenu.style.display = 'none';

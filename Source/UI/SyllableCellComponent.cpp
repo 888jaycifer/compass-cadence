@@ -833,6 +833,13 @@ void SyllableCellComponent::showContextMenu(const juce::MouseEvent&)
     colorSubMenu.addItem(110, "Customize Vowel Color Scheme...");
     menu.addSubMenu("Highlight Color", colorSubMenu);
 
+    bool isSeqHidden = document.isSequenceHiddenAt(barIndex, globalSyllableIndex);
+    menu.addItem(112, "Hide Rhyme Color Pair for This Sequence", trimmed.isNotEmpty(), isSeqHidden);
+    if (document.hasHiddenSequences())
+        menu.addItem(113, "Unhide All Rhyme Color Pairs");
+
+    menu.addSeparator();
+
     // 3. Text Transform Submenu
     juce::PopupMenu caseSubMenu;
     caseSubMenu.addItem(201, "UPPERCASE", trimmed.isNotEmpty());
@@ -925,6 +932,16 @@ void SyllableCellComponent::showContextMenu(const juce::MouseEvent&)
         else if (result == 110) // Customize Vowel Color Scheme
         {
             VowelColorCustomizerDialog::showDialog(this, document);
+        }
+        else if (result == 112) // Hide rhyme color pair for this sequence
+        {
+            document.toggleHideSequenceAt(barIndex, globalSyllableIndex);
+            updateContent();
+        }
+        else if (result == 113) // Unhide all
+        {
+            document.unhideAllSequences();
+            updateContent();
         }
         // Case transforms
         else if (result == 201) // Upper

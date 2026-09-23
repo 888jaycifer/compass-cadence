@@ -57,20 +57,30 @@ public:
                                                    const juce::String& prevSyllable = {},
                                                    const juce::String& nextSyllable = {});
 
+    // Minimum repeat length setting (2, 3, or 4 syllables)
+    int getMinRepeatLength() const noexcept { return minRepeatLength; }
+    void setMinRepeatLength(int len) noexcept { minRepeatLength = std::clamp(len, 2, 4); }
+
     // Scans a collection of syllables and computes color assignments for recurring rhymes
     void updateRhymeMap(const std::vector<juce::String>& allSyllables);
 
-    // Context-aware batch update for rhyme mode
-    void updateRhymeMapWithContext(const std::vector<std::vector<juce::String>>& lineSyllables);
+    // Context-aware batch update for rhyme mode with per-cell exclusion
+    void updateRhymeMapWithContext(const std::vector<std::vector<juce::String>>& lineSyllables,
+                                   const std::set<std::pair<int, int>>& hiddenCells = {});
 
-    // Repetition detector: scans document syllable stream for exact matching sequences of length >= 2
-    void updateRepetitionMap(const std::vector<DocumentSyllable>& allSyllables);
+    // Repetition detector: scans document syllable stream for exact matching sequences of length >= minRepeatLength
+    void updateRepetitionMap(const std::vector<DocumentSyllable>& allSyllables,
+                             const std::set<std::pair<int, int>>& hiddenCells = {});
 
     // Cell highlight resolution based on active colorMode
     juce::Colour getHighlightForCell(int barIndex, int globalSylIndex,
                                      const juce::String& currentText,
                                      const juce::String& prevSyl = {},
-                                     const juce::String& nextSyl = {}) const;
+                                     const juce::String& nextSyl = {},
+                                     const std::set<std::pair<int, int>>& hiddenCells = {}) const;
+
+    // Retrieves the repeated sequence span for a cell (if part of a repetition match)
+    std::vector<std::pair<int, int>> getRepeatSequenceSpanAt(int bar, int sylIndex) const;
 
     // Returns the highlighter color for a syllable, or transparent if no rhyme
     juce::Colour getHighlightForSyllable(const juce::String& syllable) const;
@@ -95,9 +105,11 @@ private:
     }
 
     ColorMode colorMode = ColorMode::Rhymes;
+    int minRepeatLength = 2;
     std::unordered_map<std::string, juce::Colour> customColours;
     std::unordered_map<std::string, juce::Colour> keyToColour;
     std::unordered_map<uint64_t, juce::Colour> repeatCellColours;
+    std::unordered_map<uint64_t, std::vector<std::pair<int, int>>> cellToRepeatSpan;
 };
 
 } // namespace CompassCadence

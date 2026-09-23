@@ -33,11 +33,17 @@ public:
 
 private:
     void openColorPicker(const juce::String& vowelKey, juce::Button* targetButton);
+    void updateRepeatButtons();
 
     LyricDocument& document;
     juce::Viewport viewport;
     std::unique_ptr<juce::Component> contentComp;
     std::vector<RowItem> rows;
+
+    juce::Label repeatLabel { {}, "Repeats Minimum Syllables:" };
+    juce::TextButton repeat2Btn { "2+ Syllables" };
+    juce::TextButton repeat3Btn { "3+ Syllables" };
+    juce::TextButton repeat4Btn { "4+ Syllables" };
 
     juce::TextButton closeBtn { juce::CharPointer_UTF8("\xc3\x97") };
     juce::TextButton resetBtn { "Reset to Defaults" };

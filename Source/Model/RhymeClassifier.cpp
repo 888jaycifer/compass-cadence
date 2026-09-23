@@ -442,7 +442,8 @@ void RhymeClassifier::updateRhymeMap(const std::vector<juce::String>& allSyllabl
     }
 }
 
-void RhymeClassifier::updateRhymeMapWithContext(const std::vector<std::vector<juce::String>>& lineSyllables)
+void RhymeClassifier::updateRhymeMapWithContext(const std::vector<std::vector<juce::String>>& lineSyllables,
+                                                const std::set<std::pair<int, int>>& hiddenCells)
 {
     keyToColour.clear();
     if (colorMode != ColorMode::Rhymes || lineSyllables.empty())
@@ -451,11 +452,16 @@ void RhymeClassifier::updateRhymeMapWithContext(const std::vector<std::vector<ju
     std::unordered_map<std::string, int> freq;
     std::vector<std::string> orderedKeys;
 
-    for (const auto& line : lineSyllables)
+    int numLines = (int)lineSyllables.size();
+    for (int b = 0; b < numLines; ++b)
     {
+        const auto& line = lineSyllables[b];
         int count = (int)line.size();
         for (int i = 0; i < count; ++i)
         {
+            if (hiddenCells.find({ b, i }) != hiddenCells.end())
+                continue; // Exclude hidden cell from rhyme frequency calculation
+
             juce::String prev = (i > 0) ? line[i - 1] : juce::String();
             juce::String next = (i < count - 1) ? line[i + 1] : juce::String();
             juce::String k = extractRhymeKeyWithContext(line[i], prev, next);
@@ -504,11 +510,13 @@ juce::String RhymeClassifier::cleanSyllableText(const juce::String& raw)
     return clean;
 }
 
-void RhymeClassifier::updateRepetitionMap(const std::vector<DocumentSyllable>& allSyllables)
+void RhymeClassifier::updateRepetitionMap(const std::vector<DocumentSyllable>& allSyllables,
+                                          const std::set<std::pair<int, int>>& hiddenCells)
 {
     repeatCellColours.clear();
+    cellToRepeatSpan.clear();
 
-    if (colorMode != ColorMode::Repeats || allSyllables.size() < 2)
+    if (colorMode != ColorMode::Repeats || (int)allSyllables.size() < minRepeatLength)
         return;
 
     struct Token
@@ -531,12 +539,22 @@ void RhymeClassifier::updateRepetitionMap(const std::vector<DocumentSyllable>& a
     }
 
     int M = (int)tokens.size();
-    if (M < 2)
+    if (M < minRepeatLength)
         return;
 
     const auto& palette = getHighlighterPalette();
     int nextColorIdx = 0;
     std::unordered_map<std::string, juce::Colour> phraseColours;
+
+    auto isInstanceHidden = [&](int startIdx, int len) -> bool
+    {
+        for (int m = 0; m < len; ++m)
+        {
+            if (hiddenCells.find({ tokens[startIdx + m].bar, tokens[startIdx + m].sylIndex }) != hiddenCells.end())
+                return true;
+        }
+        return false;
+    };
 
     for (int i = 0; i < M; ++i)
     {
@@ -552,49 +570,82 @@ void RhymeClassifier::updateRepetitionMap(const std::vector<DocumentSyllable>& a
                 L++;
             }
 
-            if (L >= 2)
+            if (L >= minRepeatLength)
             {
-                juce::String phraseKey;
-                for (int m = 0; m < L; ++m)
-                    phraseKey << tokens[i + m].clean << "|";
-
-                std::string stdKey = phraseKey.toStdString();
-                juce::Colour phraseCol;
-
-                auto it = phraseColours.find(stdKey);
-                if (it != phraseColours.end())
-                {
-                    phraseCol = it->second;
-                }
-                else
-                {
-                    phraseCol = palette[nextColorIdx % palette.size()];
-                    phraseColours[stdKey] = phraseCol;
-                    nextColorIdx++;
-                }
-
+                // Record the candidate sequence spans regardless of hidden state
+                std::vector<std::pair<int, int>> spanI, spanJ;
                 for (int m = 0; m < L; ++m)
                 {
-                    uint64_t keyI = getCellKey(tokens[i + m].bar, tokens[i + m].sylIndex);
-                    uint64_t keyJ = getCellKey(tokens[j + m].bar, tokens[j + m].sylIndex);
+                    spanI.push_back({ tokens[i + m].bar, tokens[i + m].sylIndex });
+                    spanJ.push_back({ tokens[j + m].bar, tokens[j + m].sylIndex });
+                }
+                for (int m = 0; m < L; ++m)
+                {
+                    cellToRepeatSpan[getCellKey(tokens[i + m].bar, tokens[i + m].sylIndex)] = spanI;
+                    cellToRepeatSpan[getCellKey(tokens[j + m].bar, tokens[j + m].sylIndex)] = spanJ;
+                }
 
-                    if (repeatCellColours.find(keyI) == repeatCellColours.end())
-                        repeatCellColours[keyI] = phraseCol;
+                // Check if both instances are unsuppressed
+                bool hiddenI = isInstanceHidden(i, L);
+                bool hiddenJ = isInstanceHidden(j, L);
 
-                    if (repeatCellColours.find(keyJ) == repeatCellColours.end())
-                        repeatCellColours[keyJ] = phraseCol;
+                if (!hiddenI && !hiddenJ)
+                {
+                    juce::String phraseKey;
+                    for (int m = 0; m < L; ++m)
+                        phraseKey << tokens[i + m].clean << "|";
+
+                    std::string stdKey = phraseKey.toStdString();
+                    juce::Colour phraseCol;
+
+                    auto it = phraseColours.find(stdKey);
+                    if (it != phraseColours.end())
+                    {
+                        phraseCol = it->second;
+                    }
+                    else
+                    {
+                        phraseCol = palette[nextColorIdx % palette.size()];
+                        phraseColours[stdKey] = phraseCol;
+                        nextColorIdx++;
+                    }
+
+                    for (int m = 0; m < L; ++m)
+                    {
+                        uint64_t keyI = getCellKey(tokens[i + m].bar, tokens[i + m].sylIndex);
+                        uint64_t keyJ = getCellKey(tokens[j + m].bar, tokens[j + m].sylIndex);
+
+                        if (repeatCellColours.find(keyI) == repeatCellColours.end())
+                            repeatCellColours[keyI] = phraseCol;
+
+                        if (repeatCellColours.find(keyJ) == repeatCellColours.end())
+                            repeatCellColours[keyJ] = phraseCol;
+                    }
                 }
             }
         }
     }
 }
 
+std::vector<std::pair<int, int>> RhymeClassifier::getRepeatSequenceSpanAt(int bar, int sylIndex) const
+{
+    uint64_t key = getCellKey(bar, sylIndex);
+    auto it = cellToRepeatSpan.find(key);
+    if (it != cellToRepeatSpan.end())
+        return it->second;
+    return { { bar, sylIndex } };
+}
+
 juce::Colour RhymeClassifier::getHighlightForCell(int barIndex, int globalSylIndex,
                                                  const juce::String& currentText,
                                                  const juce::String& prevSyl,
-                                                 const juce::String& nextSyl) const
+                                                 const juce::String& nextSyl,
+                                                 const std::set<std::pair<int, int>>& hiddenCells) const
 {
     if (colorMode == ColorMode::Off)
+        return juce::Colours::transparentBlack;
+
+    if (hiddenCells.find({ barIndex, globalSylIndex }) != hiddenCells.end())
         return juce::Colours::transparentBlack;
 
     if (colorMode == ColorMode::Rhymes)

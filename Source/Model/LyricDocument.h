@@ -202,6 +202,15 @@ public:
     void setVowelSoundColor(const juce::String& vowelKey, const juce::Colour& colour);
     void resetVowelSoundColorsToDefaults();
 
+    // Repeats settings & sequence suppression
+    int getMinRepeatLength() const noexcept { return rhymeClassifier.getMinRepeatLength(); }
+    void setMinRepeatLength(int len);
+    bool isSequenceHiddenAt(int barIndex, int globalSylIndex) const;
+    void toggleHideSequenceAt(int barIndex, int globalSylIndex);
+    void unhideAllSequences();
+    bool hasHiddenSequences() const noexcept { return !hiddenColorCells.empty(); }
+    const std::set<std::pair<int, int>>& getHiddenColorCells() const noexcept { return hiddenColorCells; }
+
     // ValueTree Serialization for DAW project saving
     juce::ValueTree toValueTree() const;
     void fromValueTree(const juce::ValueTree& vt);
@@ -221,6 +230,8 @@ private:
         std::set<std::pair<int, int>> boldCells;
         std::map<std::pair<int, int>, CellAlignment> cellAlignments;
         std::map<std::pair<int, int>, juce::Colour> customCellColors;
+        std::set<std::pair<int, int>> hiddenColorCells;
+        int minRepeatLength = 2;
         std::map<int, int> customSpokenSyllableCounts;
         int totalBars = 320;
         int barHeight = 50;
@@ -252,6 +263,7 @@ private:
     std::set<std::pair<int, int>> boldCells;
     std::map<std::pair<int, int>, CellAlignment> cellAlignments;
     std::map<std::pair<int, int>, juce::Colour> customCellColors;
+    std::set<std::pair<int, int>> hiddenColorCells;
     std::map<int, int> customSpokenSyllableCounts;
     bool customStanzaBreaksActive = false;
     std::set<int> stanzaBreaks;

@@ -383,6 +383,8 @@ void LyricDocument::pushUndoSnapshot()
     snap.cellAlignments = cellAlignments;
     snap.showAlignmentControls = showAlignmentControls;
     snap.customCellColors = customCellColors;
+    snap.hiddenColorCells = hiddenColorCells;
+    snap.minRepeatLength = rhymeClassifier.getMinRepeatLength();
     snap.customSpokenSyllableCounts = customSpokenSyllableCounts;
     snap.totalBars = totalBars;
     snap.barHeight = barHeight;
@@ -411,6 +413,8 @@ void LyricDocument::undo()
     current.cellAlignments = cellAlignments;
     current.showAlignmentControls = showAlignmentControls;
     current.customCellColors = customCellColors;
+    current.hiddenColorCells = hiddenColorCells;
+    current.minRepeatLength = rhymeClassifier.getMinRepeatLength();
     current.customSpokenSyllableCounts = customSpokenSyllableCounts;
     current.totalBars = totalBars;
     current.barHeight = barHeight;
@@ -428,6 +432,8 @@ void LyricDocument::undo()
     cellAlignments = std::move(prev.cellAlignments);
     showAlignmentControls = prev.showAlignmentControls;
     customCellColors = std::move(prev.customCellColors);
+    hiddenColorCells = std::move(prev.hiddenColorCells);
+    rhymeClassifier.setMinRepeatLength(prev.minRepeatLength);
     customSpokenSyllableCounts = std::move(prev.customSpokenSyllableCounts);
     totalBars = prev.totalBars;
     barHeight = prev.barHeight;
@@ -459,6 +465,8 @@ void LyricDocument::redo()
     current.cellAlignments = cellAlignments;
     current.showAlignmentControls = showAlignmentControls;
     current.customCellColors = customCellColors;
+    current.hiddenColorCells = hiddenColorCells;
+    current.minRepeatLength = rhymeClassifier.getMinRepeatLength();
     current.customSpokenSyllableCounts = customSpokenSyllableCounts;
     current.totalBars = totalBars;
     current.barHeight = barHeight;
@@ -476,6 +484,8 @@ void LyricDocument::redo()
     cellAlignments = std::move(next.cellAlignments);
     showAlignmentControls = next.showAlignmentControls;
     customCellColors = std::move(next.customCellColors);
+    hiddenColorCells = std::move(next.hiddenColorCells);
+    rhymeClassifier.setMinRepeatLength(next.minRepeatLength);
     customSpokenSyllableCounts = std::move(next.customSpokenSyllableCounts);
     totalBars = next.totalBars;
     barHeight = next.barHeight;
@@ -896,11 +906,28 @@ void LyricDocument::insertSyllableInBar(int barIndex, int globalSyllableIndex, b
     for (const auto& p : cShift)
         customCellColors[{ barIndex, p.first + 1 }] = p.second;
 
-    // 6. Shift selectedCells
+    // 6. Shift hiddenColorCells
+    std::vector<int> hShift;
+    for (auto it = hiddenColorCells.begin(); it != hiddenColorCells.end(); )
+    {
+        if (it->first == barIndex && it->second >= insertPos)
+        {
+            hShift.push_back(it->second);
+            it = hiddenColorCells.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+    for (int sIdx : hShift)
+        hiddenColorCells.insert({ barIndex, sIdx + 1 });
+
+    // 7. Shift selectedCells
     selectedCells.clear();
     selectedCells.insert({ barIndex, insertPos });
 
-    // 7. Refresh & Notify
+    // 8. Refresh & Notify
     refreshRhymes();
     notifyBarNotationChanged(barIndex);
     notifyChanged();
@@ -1018,20 +1045,48 @@ void LyricDocument::deleteSyllableInBar(int barIndex, int globalSyllableIndex)
     for (const auto& p : cShift)
         customCellColors[{ barIndex, p.first - 1 }] = p.second;
 
-    // 6. Shift selectedCells
+    // 6. Shift hiddenColorCells
+    std::set<std::pair<int, int>> hShift;
+    for (auto hit = hiddenColorCells.begin(); hit != hiddenColorCells.end(); )
+    {
+        if (hit->first == barIndex)
+        {
+            if (hit->second == globalSyllableIndex)
+            {
+                hit = hiddenColorCells.erase(hit);
+            }
+            else if (hit->second > globalSyllableIndex)
+            {
+                hShift.insert({ barIndex, hit->second - 1 });
+                hit = hiddenColorCells.erase(hit);
+            }
+            else
+            {
+                ++hit;
+            }
+        }
+        else
+        {
+            ++hit;
+        }
+    }
+    for (const auto& p : hShift)
+        hiddenColorCells.insert(p);
+
+    // 7. Shift selectedCells
     selectedCells.clear();
     int newTotal = notat.getTotalSyllables();
     int newSelIdx = std::clamp(globalSyllableIndex, 0, std::max(0, newTotal - 1));
     selectedCells.insert({ barIndex, newSelIdx });
 
-    // 7. Clamp customSpokenSyllableCounts
+    // 8. Clamp customSpokenSyllableCounts
     auto spIt = customSpokenSyllableCounts.find(barIndex);
     if (spIt != customSpokenSyllableCounts.end() && spIt->second > newTotal)
     {
         spIt->second = newTotal;
     }
 
-    // 8. Refresh & Notify
+    // 9. Refresh & Notify
     refreshRhymes();
     notifyBarNotationChanged(barIndex);
     notifyChanged();
@@ -1394,7 +1449,18 @@ void LyricDocument::insertBar(int afterBarIndex)
     }
     customCellColors = std::move(newColors);
 
-    // 7. Shift custom stanza breaks
+    // 7. Shift hidden color cells
+    std::set<std::pair<int, int>> newHidden;
+    for (const auto& cell : hiddenColorCells)
+    {
+        if (cell.first >= insertPos)
+            newHidden.insert({ cell.first + 1, cell.second });
+        else
+            newHidden.insert(cell);
+    }
+    hiddenColorCells = std::move(newHidden);
+
+    // 8. Shift custom stanza breaks
     if (customStanzaBreaksActive)
     {
         std::set<int> newBreaks;
@@ -1408,7 +1474,7 @@ void LyricDocument::insertBar(int afterBarIndex)
         stanzaBreaks = std::move(newBreaks);
     }
 
-    // 7. Inserted bar gets the notation of afterBarIndex
+    // 9. Inserted bar gets the notation of afterBarIndex
     MetricNotation inheritedMeter = getNotation(afterBarIndex);
     barNotations[insertPos] = inheritedMeter;
     barData[insertPos] = std::vector<juce::String>(inheritedMeter.getTotalSyllables());
@@ -1445,8 +1511,73 @@ void LyricDocument::refreshRhymes()
             lines.push_back(line);
         }
     }
-    rhymeClassifier.updateRhymeMapWithContext(lines);
-    rhymeClassifier.updateRepetitionMap(allSyllables);
+    rhymeClassifier.updateRhymeMapWithContext(lines, hiddenColorCells);
+    rhymeClassifier.updateRepetitionMap(allSyllables, hiddenColorCells);
+}
+
+void LyricDocument::setMinRepeatLength(int len)
+{
+    int clamped = std::clamp(len, 2, 4);
+    if (rhymeClassifier.getMinRepeatLength() != clamped)
+    {
+        pushUndoSnapshot();
+        rhymeClassifier.setMinRepeatLength(clamped);
+        refreshRhymes();
+        notifyChanged();
+    }
+}
+
+bool LyricDocument::isSequenceHiddenAt(int barIndex, int globalSylIndex) const
+{
+    return hiddenColorCells.find({ barIndex, globalSylIndex }) != hiddenColorCells.end();
+}
+
+void LyricDocument::toggleHideSequenceAt(int barIndex, int globalSylIndex)
+{
+    pushUndoSnapshot();
+
+    if (isSequenceHiddenAt(barIndex, globalSylIndex))
+    {
+        // Unhide
+        auto span = rhymeClassifier.getRepeatSequenceSpanAt(barIndex, globalSylIndex);
+        if (span.empty())
+        {
+            hiddenColorCells.erase({ barIndex, globalSylIndex });
+        }
+        else
+        {
+            for (const auto& cell : span)
+                hiddenColorCells.erase(cell);
+        }
+    }
+    else
+    {
+        // Hide
+        auto span = rhymeClassifier.getRepeatSequenceSpanAt(barIndex, globalSylIndex);
+        if (span.empty())
+        {
+            hiddenColorCells.insert({ barIndex, globalSylIndex });
+        }
+        else
+        {
+            for (const auto& cell : span)
+                hiddenColorCells.insert(cell);
+        }
+    }
+
+    refreshRhymes();
+    notifyChanged();
+}
+
+void LyricDocument::unhideAllSequences()
+{
+    if (!hiddenColorCells.empty())
+    {
+        pushUndoSnapshot();
+        hiddenColorCells.clear();
+        refreshRhymes();
+        notifyChanged();
+    }
 }
 
 juce::Colour LyricDocument::getVowelSoundColor(const juce::String& vowelKey) const
@@ -1482,6 +1613,17 @@ juce::ValueTree LyricDocument::toValueTree() const
     vt.setProperty("showAlignmentControls", showAlignmentControls, nullptr);
     vt.setProperty("rhymeHighlight", rhymeClassifier.isEnabled(), nullptr);
     vt.setProperty("colorMode", (int)rhymeClassifier.getColorMode(), nullptr);
+    vt.setProperty("minRepeatLength", rhymeClassifier.getMinRepeatLength(), nullptr);
+    if (!hiddenColorCells.empty())
+    {
+        juce::String hiddenStr;
+        for (const auto& cell : hiddenColorCells)
+        {
+            if (hiddenStr.isNotEmpty()) hiddenStr += ";";
+            hiddenStr += juce::String(cell.first) + "," + juce::String(cell.second);
+        }
+        vt.setProperty("hiddenColorCells", hiddenStr, nullptr);
+    }
     vt.setProperty("customStanzaBreaksActive", customStanzaBreaksActive, nullptr);
     if (customStanzaBreaksActive)
     {
@@ -1570,6 +1712,7 @@ void LyricDocument::fromValueTree(const juce::ValueTree& vt)
     cellAlignments.clear();
     customCellColors.clear();
     customSpokenSyllableCounts.clear();
+    hiddenColorCells.clear();
     totalBars = vt.getProperty("totalBars", totalBars);
     barsPerPage = vt.getProperty("barsPerPage", barsPerPage);
     currentPage = vt.getProperty("currentPage", currentPage);
@@ -1587,6 +1730,31 @@ void LyricDocument::fromValueTree(const juce::ValueTree& vt)
     else
     {
         rhymeClassifier.setEnabled(vt.getProperty("rhymeHighlight", true));
+    }
+
+    if (vt.hasProperty("minRepeatLength"))
+    {
+        int mrl = (int)vt.getProperty("minRepeatLength", 2);
+        rhymeClassifier.setMinRepeatLength(mrl);
+    }
+    else
+    {
+        rhymeClassifier.setMinRepeatLength(2);
+    }
+
+    if (vt.hasProperty("hiddenColorCells"))
+    {
+        auto pairs = juce::StringArray::fromTokens(vt.getProperty("hiddenColorCells").toString(), ";", "");
+        for (const auto& p : pairs)
+        {
+            auto coords = juce::StringArray::fromTokens(p.trim(), ",", "");
+            if (coords.size() == 2)
+            {
+                int b = coords[0].getIntValue();
+                int s = coords[1].getIntValue();
+                hiddenColorCells.insert({ b, s });
+            }
+        }
     }
 
     auto vowelNode = vt.getChildWithName("VowelColors");

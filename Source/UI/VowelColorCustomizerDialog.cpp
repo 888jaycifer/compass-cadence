@@ -149,6 +149,36 @@ VowelColorCustomizerDialog::VowelColorCustomizerDialog(LyricDocument& doc)
     viewport.setScrollBarThickness(10);
     addAndMakeVisible(viewport);
 
+    repeatLabel.setFont(juce::Font(juce::FontOptions("Segoe UI", 13.0f, juce::Font::bold)));
+    repeatLabel.setColour(juce::Label::textColourId, NotebookLookAndFeel::getGraphiteColour());
+    addAndMakeVisible(repeatLabel);
+
+    repeat2Btn.setClickingTogglesState(false);
+    repeat2Btn.setTooltip("Detect and highlight exact matches of 2 or more syllables.");
+    repeat2Btn.onClick = [this] {
+        document.setMinRepeatLength(2);
+        updateRepeatButtons();
+    };
+    addAndMakeVisible(repeat2Btn);
+
+    repeat3Btn.setClickingTogglesState(false);
+    repeat3Btn.setTooltip("Detect and highlight exact matches of 3 or more syllables.");
+    repeat3Btn.onClick = [this] {
+        document.setMinRepeatLength(3);
+        updateRepeatButtons();
+    };
+    addAndMakeVisible(repeat3Btn);
+
+    repeat4Btn.setClickingTogglesState(false);
+    repeat4Btn.setTooltip("Detect and highlight exact matches of 4 or more syllables.");
+    repeat4Btn.onClick = [this] {
+        document.setMinRepeatLength(4);
+        updateRepeatButtons();
+    };
+    addAndMakeVisible(repeat4Btn);
+
+    updateRepeatButtons();
+
     closeBtn.setTooltip("Close");
     closeBtn.onClick = [this] {
         if (onClose) onClose();
@@ -173,6 +203,14 @@ VowelColorCustomizerDialog::VowelColorCustomizerDialog(LyricDocument& doc)
 VowelColorCustomizerDialog::~VowelColorCustomizerDialog()
 {
     viewport.setViewedComponent(nullptr, false);
+}
+
+void VowelColorCustomizerDialog::updateRepeatButtons()
+{
+    int minLen = document.getMinRepeatLength();
+    repeat2Btn.setToggleState(minLen == 2, juce::dontSendNotification);
+    repeat3Btn.setToggleState(minLen == 3, juce::dontSendNotification);
+    repeat4Btn.setToggleState(minLen == 4, juce::dontSendNotification);
 }
 
 void VowelColorCustomizerDialog::openColorPicker(const juce::String& vowelKey, juce::Button* targetButton)
@@ -205,15 +243,15 @@ void VowelColorCustomizerDialog::paint(juce::Graphics& g)
     // Title header
     g.setColour(dark ? juce::Colour(0xFFF1F5F9) : juce::Colour(0xFF1E293B));
     g.setFont(juce::Font(juce::FontOptions("Segoe UI", 16.0f, juce::Font::bold)));
-    g.drawText("Customize Vowel Color Scheme", 18, 14, getWidth() - 60, 22, juce::Justification::centredLeft);
+    g.drawText("Customize Color Palette & Repetition Rules", 18, 12, getWidth() - 60, 22, juce::Justification::centredLeft);
 
     g.setColour(dark ? juce::Colour(0xFF94A3B8) : juce::Colour(0xFF64748B));
     g.setFont(juce::Font(juce::FontOptions("Segoe UI", 12.0f, juce::Font::plain)));
-    g.drawText("Click any color swatch to customize the tint for that sound", 18, 37, getWidth() - 60, 18, juce::Justification::centredLeft);
+    g.drawText("Click any color swatch to customize vowel sounds, or adjust match length", 18, 34, getWidth() - 60, 18, juce::Justification::centredLeft);
 
-    // Subtle rule line below header
+    // Subtle rule line below header & repeat controls
     g.setColour(NotebookLookAndFeel::getRuleLineColour());
-    g.drawLine(14.0f, 60.0f, (float)getWidth() - 14.0f, 60.0f, 1.0f);
+    g.drawLine(14.0f, 96.0f, (float)getWidth() - 14.0f, 96.0f, 1.0f);
 }
 
 void VowelColorCustomizerDialog::resized()
@@ -222,10 +260,16 @@ void VowelColorCustomizerDialog::resized()
     int footerH = 50;
     auto footerArea = b.removeFromBottom(footerH);
 
-    int headerH = 64;
+    int headerH = 102;
     b.removeFromTop(headerH);
 
-    closeBtn.setBounds(getWidth() - 36, 14, 24, 24);
+    closeBtn.setBounds(getWidth() - 36, 12, 24, 24);
+
+    repeatLabel.setBounds(18, 60, 180, 26);
+    int rBtnW = 90, rBtnH = 26;
+    repeat2Btn.setBounds(202, 60, rBtnW, rBtnH);
+    repeat3Btn.setBounds(202 + rBtnW + 4, 60, rBtnW, rBtnH);
+    repeat4Btn.setBounds(202 + (rBtnW + 4) * 2, 60, rBtnW, rBtnH);
 
     viewport.setBounds(b.reduced(6, 0));
 

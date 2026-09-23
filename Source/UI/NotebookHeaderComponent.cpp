@@ -608,22 +608,23 @@ void NotebookHeaderComponent::updateRhymeButtonDisplay()
 {
     if (document == nullptr) return;
     auto mode = document->getRhymeClassifier().getColorMode();
+    int minLen = document->getMinRepeatLength();
     switch (mode)
     {
         case RhymeClassifier::ColorMode::Off:
             rhymeToggleBtn.setToggleState(false, juce::dontSendNotification);
             rhymeToggleBtn.setButtonText("Colors: OFF");
-            rhymeToggleBtn.setTooltip("Color Mode: OFF. Click to cycle to Rhymes (phonetic vowels), then Repeats (2+ exact syllables). Right-click for menu.");
+            rhymeToggleBtn.setTooltip("Color Mode: OFF. Click to cycle to Rhymes (phonetic vowels), then Repeats. Right-click for menu.");
             break;
         case RhymeClassifier::ColorMode::Rhymes:
             rhymeToggleBtn.setToggleState(true, juce::dontSendNotification);
             rhymeToggleBtn.setButtonText("Rhymes: ON");
-            rhymeToggleBtn.setTooltip("Color Mode: Rhyme Scheme (phonetic vowel & slant rhymes). Click for Repeats (2+ exact syllables). Right-click for menu.");
+            rhymeToggleBtn.setTooltip("Color Mode: Rhyme Scheme (phonetic vowel & slant rhymes). Click for Repeats. Right-click for menu.");
             break;
         case RhymeClassifier::ColorMode::Repeats:
             rhymeToggleBtn.setToggleState(true, juce::dontSendNotification);
-            rhymeToggleBtn.setButtonText("Repeats: 2+");
-            rhymeToggleBtn.setTooltip("Color Mode: Repetition Detector (highlights matching sequences of 2+ exact syllables). Click to turn OFF. Right-click for menu.");
+            rhymeToggleBtn.setButtonText("Repeats: " + juce::String(minLen) + "+");
+            rhymeToggleBtn.setTooltip("Color Mode: Repetition Detector (highlights matching sequences of " + juce::String(minLen) + "+ exact syllables). Click to turn OFF. Right-click for menu.");
             break;
     }
 }
@@ -632,19 +633,59 @@ void NotebookHeaderComponent::showColorModeMenu()
 {
     if (document == nullptr) return;
     auto curMode = document->getRhymeClassifier().getColorMode();
+    int minLen = document->getMinRepeatLength();
+
     juce::PopupMenu menu;
     menu.addItem(1, "Rhymes (Phonetic Vowels)", true, curMode == RhymeClassifier::ColorMode::Rhymes);
-    menu.addItem(2, "Repeats (2+ Exact Syllables)", true, curMode == RhymeClassifier::ColorMode::Repeats);
-    menu.addItem(3, "Colors OFF", true, curMode == RhymeClassifier::ColorMode::Off);
+    
+    juce::PopupMenu repeatsMenu;
+    repeatsMenu.addItem(2, "2+ Syllables", true, curMode == RhymeClassifier::ColorMode::Repeats && minLen == 2);
+    repeatsMenu.addItem(3, "3+ Syllables", true, curMode == RhymeClassifier::ColorMode::Repeats && minLen == 3);
+    repeatsMenu.addItem(4, "4+ Syllables", true, curMode == RhymeClassifier::ColorMode::Repeats && minLen == 4);
+    menu.addSubMenu("Repeats (Exact Matches)", repeatsMenu, true);
+
+    menu.addItem(5, "Colors OFF", true, curMode == RhymeClassifier::ColorMode::Off);
     menu.addSeparator();
-    menu.addItem(4, "Clear All Custom Cell Colors (Reset to Auto)");
+
+    if (document->hasHiddenSequences())
+    {
+        menu.addItem(6, "Unhide All Rhyme Color Pairs / Sequences");
+    }
+    menu.addItem(7, "Clear All Custom Cell Colors (Reset to Auto)");
 
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&rhymeToggleBtn), [this](int result) {
         if (document == nullptr || result == 0) return;
-        if (result == 1) document->setColorMode(RhymeClassifier::ColorMode::Rhymes);
-        else if (result == 2) document->setColorMode(RhymeClassifier::ColorMode::Repeats);
-        else if (result == 3) document->setColorMode(RhymeClassifier::ColorMode::Off);
-        else if (result == 4) document->clearAllCustomCellColors();
+        if (result == 1)
+        {
+            document->setColorMode(RhymeClassifier::ColorMode::Rhymes);
+        }
+        else if (result == 2)
+        {
+            document->setMinRepeatLength(2);
+            document->setColorMode(RhymeClassifier::ColorMode::Repeats);
+        }
+        else if (result == 3)
+        {
+            document->setMinRepeatLength(3);
+            document->setColorMode(RhymeClassifier::ColorMode::Repeats);
+        }
+        else if (result == 4)
+        {
+            document->setMinRepeatLength(4);
+            document->setColorMode(RhymeClassifier::ColorMode::Repeats);
+        }
+        else if (result == 5)
+        {
+            document->setColorMode(RhymeClassifier::ColorMode::Off);
+        }
+        else if (result == 6)
+        {
+            document->unhideAllSequences();
+        }
+        else if (result == 7)
+        {
+            document->clearAllCustomCellColors();
+        }
 
         updateRhymeButtonDisplay();
         document->refreshRhymes();
