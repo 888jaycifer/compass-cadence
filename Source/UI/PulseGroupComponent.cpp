@@ -48,7 +48,8 @@ SyllableCellComponent* PulseGroupComponent::getCell(int index)
 
 void PulseGroupComponent::paint(juce::Graphics& g)
 {
-    auto bounds = getLocalBounds().toFloat().reduced(1.0f);
+    int boxH = std::max(18, getHeight() - 14);
+    auto bounds = juce::Rectangle<float>(1.0f, 1.0f, (float)getWidth() - 2.0f, (float)boxH - 2.0f);
 
     // Thick graphite border defining the pulse subdivision group (box interior is transparent so alternating line shading flows through)
     g.setColour(NotebookLookAndFeel::getPulseBoxBorderColour());
@@ -73,18 +74,19 @@ void PulseGroupComponent::paint(juce::Graphics& g)
 
 void PulseGroupComponent::resized()
 {
-    auto bounds = getLocalBounds().reduced(2);
     const int numCells = (int)cells.size();
     if (numCells == 0)
         return;
 
-    int cellWidth = bounds.getWidth() / numCells;
-    int x = bounds.getX();
+    int totalW = getWidth();
+    int totalH = getHeight();
+    int cellWidth = totalW / numCells;
+    int x = 0;
 
     for (int i = 0; i < numCells; ++i)
     {
-        int w = (i == numCells - 1) ? (bounds.getRight() - x) : cellWidth;
-        cells[i]->setBounds(x, bounds.getY(), w, bounds.getHeight());
+        int w = (i == numCells - 1) ? (totalW - x) : cellWidth;
+        cells[i]->setBounds(x, 0, w, totalH);
         x += w;
     }
 }

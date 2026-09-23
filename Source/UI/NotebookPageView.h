@@ -27,6 +27,7 @@ public:
 
     void paint(juce::Graphics& g) override;
     void resized() override;
+    void mouseExit(const juce::MouseEvent& e) override;
 
     int getBarY(int barIndex) const;
     int getBarHeight() const noexcept { return barHeight; }

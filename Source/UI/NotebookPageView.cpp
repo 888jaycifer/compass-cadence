@@ -193,6 +193,14 @@ void NotebookPageContent::resized()
     }
 }
 
+void NotebookPageContent::mouseExit(const juce::MouseEvent& e)
+{
+    if (!getLocalBounds().contains(e.getPosition()))
+    {
+        SyllableCellComponent::clearGlobalHoveredCell();
+    }
+}
+
 void NotebookPageContent::barNotationChanged(int barIndex)
 {
     for (auto& bl : barLines)

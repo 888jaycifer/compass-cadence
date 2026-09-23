@@ -75,7 +75,11 @@ public:
     void jumpToNextBar();
     void handleMultiWordPaste(const juce::String& text);
 
+    static void clearGlobalHoveredCell();
+    void hideHoverButtons();
+
 private:
+    static SyllableCellComponent* currentlyHoveredCell;
     LyricDocument& document;
     int barIndex;
     int pulseIndex;

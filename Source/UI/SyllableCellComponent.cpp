@@ -254,9 +254,21 @@ public:
     void paintButton(juce::Graphics& g, bool isOver, bool) override
     {
         auto b = getLocalBounds().toFloat().reduced(0.5f);
-        g.setColour(isOver ? juce::Colour(0xFFD97706) : juce::Colour(0x30D97706));
-        g.fillRoundedRectangle(b, 2.0f);
-        g.setColour(isOver ? juce::Colours::white : juce::Colour(0xFFD97706));
+        if (isOver)
+        {
+            g.setColour(juce::Colour(0xFFD97706));
+            g.fillRoundedRectangle(b, 2.0f);
+            g.setColour(juce::Colours::white);
+        }
+        else
+        {
+            g.setColour(NotebookLookAndFeel::getPaperColour());
+            g.fillRoundedRectangle(b, 2.0f);
+            g.setColour(juce::Colour(0x35D97706));
+            g.fillRoundedRectangle(b, 2.0f);
+            g.setColour(juce::Colour(0xFFD97706));
+            g.drawRoundedRectangle(b, 2.0f, 1.0f);
+        }
         g.setFont(juce::Font(juce::FontOptions("Segoe UI", 11.0f, juce::Font::bold)));
         g.drawText("+", getLocalBounds(), juce::Justification::centred, false);
     }
@@ -282,7 +294,9 @@ public:
         }
         else
         {
-            g.setColour(juce::Colour(0x20EF4444));
+            g.setColour(NotebookLookAndFeel::getPaperColour());
+            g.fillRoundedRectangle(b, 2.0f);
+            g.setColour(juce::Colour(0x35EF4444));
             g.fillRoundedRectangle(b, 2.0f);
             g.setColour(juce::Colour(0xFFEF4444));
             g.drawRoundedRectangle(b, 2.0f, 1.0f);
@@ -544,6 +558,25 @@ private:
 namespace CompassCadence
 {
 
+SyllableCellComponent* SyllableCellComponent::currentlyHoveredCell = nullptr;
+
+void SyllableCellComponent::clearGlobalHoveredCell()
+{
+    if (currentlyHoveredCell != nullptr)
+    {
+        currentlyHoveredCell->hideHoverButtons();
+        currentlyHoveredCell = nullptr;
+    }
+}
+
+void SyllableCellComponent::hideHoverButtons()
+{
+    if (cornerAddBtn != nullptr && cornerAddBtn->isVisible())
+        cornerAddBtn->setVisible(false);
+    if (removeSyllableBtn != nullptr && removeSyllableBtn->isVisible())
+        removeSyllableBtn->setVisible(false);
+}
+
 SyllableCellComponent::SyllableCellComponent(LyricDocument& doc, int bar, int pulse, int sylInPulse, int globalSyl)
     : document(doc), barIndex(bar), pulseIndex(pulse),
       syllableInPulse(sylInPulse), globalSyllableIndex(globalSyl)
@@ -592,13 +625,15 @@ SyllableCellComponent::SyllableCellComponent(LyricDocument& doc, int bar, int pu
         document.deleteSyllableInBar(barIndex, globalSyllableIndex);
     };
     addChildComponent(removeSyllableBtn.get());
-    setPaintingIsUnclipped(true);
+    removeSyllableBtn->setVisible(false);
 
     updateContent();
 }
 
 SyllableCellComponent::~SyllableCellComponent()
 {
+    if (currentlyHoveredCell == this)
+        currentlyHoveredCell = nullptr;
 }
 
 void SyllableCellComponent::setPlayheadActive(bool active)
@@ -676,7 +711,8 @@ void SyllableCellComponent::startEditing(juce::juce_wchar initialChar)
         editor->setJustification(just);
 
         addAndMakeVisible(editor.get());
-        editor->setBounds(getLocalBounds().reduced(2));
+        int boxH = std::max(18, getHeight() - 14);
+        editor->setBounds(2, 2, getWidth() - 4, boxH - 4);
 
         if (initialChar >= 32)
         {
@@ -1124,6 +1160,12 @@ void SyllableCellComponent::mouseDoubleClick(const juce::MouseEvent& e)
 
 void SyllableCellComponent::mouseEnter(const juce::MouseEvent& e)
 {
+    if (currentlyHoveredCell != nullptr && currentlyHoveredCell != this)
+    {
+        currentlyHoveredCell->hideHoverButtons();
+    }
+    currentlyHoveredCell = this;
+
     updateCornerAddButtonPosition((float)e.x);
     if (removeSyllableBtn != nullptr && !removeSyllableBtn->isVisible())
     {
@@ -1131,17 +1173,25 @@ void SyllableCellComponent::mouseEnter(const juce::MouseEvent& e)
     }
 }
 
-void SyllableCellComponent::mouseExit(const juce::MouseEvent&)
+void SyllableCellComponent::mouseExit(const juce::MouseEvent& e)
 {
-    if (!isMouseOver(true))
+    if (!getLocalBounds().contains(e.getPosition()))
     {
-        if (cornerAddBtn != nullptr)      cornerAddBtn->setVisible(false);
-        if (removeSyllableBtn != nullptr) removeSyllableBtn->setVisible(false);
+        if (currentlyHoveredCell == this)
+            currentlyHoveredCell = nullptr;
+        hideHoverButtons();
     }
 }
 
 void SyllableCellComponent::mouseMove(const juce::MouseEvent& e)
 {
+    if (currentlyHoveredCell != this)
+    {
+        if (currentlyHoveredCell != nullptr)
+            currentlyHoveredCell->hideHoverButtons();
+        currentlyHoveredCell = this;
+    }
+
     bool onLeft = (e.x < (float)getWidth() * 0.5f);
     if (onLeft != isCornerLeft || cornerAddBtn == nullptr || !cornerAddBtn->isVisible())
     {
@@ -1157,9 +1207,10 @@ void SyllableCellComponent::updateCornerAddButtonPosition(float mouseX)
 {
     bool onLeft = (mouseX < (float)getWidth() * 0.5f);
     isCornerLeft = onLeft;
+    int boxH = std::max(18, getHeight() - 14);
     int btnW = 12;
     int btnH = 12;
-    int btnY = getHeight() - btnH - 1;
+    int btnY = boxH - btnH - 1;
     int btnX = isCornerLeft ? 2 : (getWidth() - btnW - 2);
 
     if (cornerAddBtn != nullptr)
@@ -1185,17 +1236,7 @@ void SyllableCellComponent::deleteSyllableBox()
 
 bool SyllableCellComponent::hitTest(int x, int y)
 {
-    if (juce::Component::hitTest(x, y))
-        return true;
-    if (removeSyllableBtn != nullptr && removeSyllableBtn->isVisible())
-    {
-        auto rb = removeSyllableBtn->getBounds();
-        auto bridge = juce::Rectangle<int>(rb.getX() - 2, getHeight() - 2,
-                                           rb.getWidth() + 4, rb.getBottom() - getHeight() + 4);
-        if (bridge.contains(x, y) || rb.expanded(2, 2).contains(x, y))
-            return true;
-    }
-    return false;
+    return juce::Component::hitTest(x, y);
 }
 
 void SyllableCellComponent::updateAlignButtonStates()
@@ -1500,13 +1541,14 @@ LyricDocument::CellAlignment SyllableCellComponent::getAlignment() const
 
 void SyllableCellComponent::paint(juce::Graphics& g)
 {
-    auto bounds = getLocalBounds().toFloat();
+    int boxH = std::max(18, getHeight() - 14);
+    auto textBounds = juce::Rectangle<float>(1.0f, 1.0f, (float)getWidth() - 2.0f, (float)boxH - 2.0f);
 
     // 1. Rhyme Scheme / Custom Color Highlighter Tint (if any)
     if (!rhymeHighlight.isTransparent() && document.getRhymeClassifier().isEnabled())
     {
         g.setColour(rhymeHighlight);
-        g.fillRoundedRectangle(bounds.reduced(1.0f), 2.0f);
+        g.fillRoundedRectangle(textBounds, 2.0f);
     }
 
     // 2. Multi-box Selection Highlight
@@ -1514,11 +1556,11 @@ void SyllableCellComponent::paint(juce::Graphics& g)
     {
         // Soft stationery denim/blue wash
         g.setColour(juce::Colour(0x352563EB));
-        g.fillRoundedRectangle(bounds.reduced(0.5f), 2.0f);
+        g.fillRoundedRectangle(textBounds, 2.0f);
 
         // Pencil selection border
         g.setColour(juce::Colour(0x992563EB));
-        g.drawRoundedRectangle(bounds.reduced(0.5f), 2.0f, 1.5f);
+        g.drawRoundedRectangle(textBounds, 2.0f, 1.5f);
     }
 
     // 3. Syllable text (when not actively editing with TextEditor)
@@ -1536,15 +1578,15 @@ void SyllableCellComponent::paint(juce::Graphics& g)
             else if (align == LyricDocument::AlignRight)
                 just = juce::Justification::centredRight;
 
-            g.drawFittedText(currentText, getLocalBounds().reduced(3, 1), just, 1);
+            g.drawFittedText(currentText, juce::Rectangle<int>(3, 1, getWidth() - 6, boxH - 2), just, 1);
         }
         else
         {
             // Faint dotted baseline for empty syllable slot
             g.setColour(NotebookLookAndFeel::getLightGraphiteColour().withAlpha(0.3f));
-            float y = bounds.getBottom() - 4.0f;
+            float y = (float)boxH - 4.0f;
             const float dashLengths[] = { 2.0f, 2.0f };
-            g.drawDashedLine(juce::Line<float>(bounds.getX() + 3.0f, y, bounds.getRight() - 3.0f, y),
+            g.drawDashedLine(juce::Line<float>(textBounds.getX() + 2.0f, y, textBounds.getRight() - 2.0f, y),
                              dashLengths, 2, 1.0f);
         }
     }
@@ -1552,17 +1594,17 @@ void SyllableCellComponent::paint(juce::Graphics& g)
 
 void SyllableCellComponent::resized()
 {
-    auto b = getLocalBounds();
-    if (editor != nullptr)
-        editor->setBounds(b.reduced(2));
+    int cellW = getWidth();
+    int cellH = getHeight();
+    int boxH = std::max(18, cellH - 14);
 
-    int cellW = b.getWidth();
-    int cellH = b.getHeight();
+    if (editor != nullptr)
+        editor->setBounds(2, 2, cellW - 4, boxH - 4);
 
     // Arrow buttons tucked at the bottom-left and bottom-right corners
     int btnW = std::clamp(cellW / 4, 8, 14);
-    int btnH = std::clamp(cellH / 2, 10, 14);
-    int btnY = cellH - btnH - 1;
+    int btnH = std::clamp(boxH / 2, 10, 14);
+    int btnY = boxH - btnH - 1;
 
     if (alignLeftBtn != nullptr)
         alignLeftBtn->setBounds(2, btnY, btnW, btnH);
@@ -1574,8 +1616,8 @@ void SyllableCellComponent::resized()
     int underlineX = (alignLeftBtn != nullptr ? alignLeftBtn->getRight() : btnW + 2) + 1;
     int underlineRight = (alignRightBtn != nullptr ? alignRightBtn->getX() : cellW - btnW - 2) - 1;
     int underlineW = std::max(6, underlineRight - underlineX);
-    int underlineH = std::clamp(cellH / 2, 10, 13);
-    int underlineY = cellH - underlineH - 1;
+    int underlineH = std::clamp(boxH / 2, 10, 13);
+    int underlineY = boxH - underlineH - 1;
 
     if (alignCenterBtn != nullptr)
         alignCenterBtn->setBounds(underlineX, underlineY, underlineW, underlineH);
@@ -1583,16 +1625,16 @@ void SyllableCellComponent::resized()
     // Corner '+' hover button: 12x12
     int cornerW = 12;
     int cornerH = 12;
-    int cornerY = cellH - cornerH - 1;
+    int cornerY = boxH - cornerH - 1;
     int cornerX = isCornerLeft ? 2 : (cellW - cornerW - 2);
     if (cornerAddBtn != nullptr)
         cornerAddBtn->setBounds(cornerX, cornerY, cornerW, cornerH);
 
     // Centered '-' button visibly BELOW the cell's bottom border (with clear air gap)
     int remW = 14;
-    int remH = 9;
+    int remH = 10;
     int remX = (cellW - remW) / 2;
-    int remY = cellH + 4;
+    int remY = boxH + 3;
     if (removeSyllableBtn != nullptr)
         removeSyllableBtn->setBounds(remX, remY, remW, remH);
 }

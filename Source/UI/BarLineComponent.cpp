@@ -223,11 +223,12 @@ void BarLineComponent::mouseMove(const juce::MouseEvent&)
     }
 }
 
-void BarLineComponent::mouseExit(const juce::MouseEvent&)
+void BarLineComponent::mouseExit(const juce::MouseEvent& e)
 {
-    if (!isMouseOver(true))
+    if (!getLocalBounds().contains(e.getPosition()))
     {
         addLineBtn.setVisible(false);
+        SyllableCellComponent::clearGlobalHoveredCell();
     }
 }
 
@@ -304,10 +305,11 @@ void BarLineComponent::resized()
 
     int metricX = (int)marginX + 6;
     int metricW = 96;
-    int h = bounds.getHeight() - 16;
-    int y = 3;
+    int h = bounds.getHeight() - 4;
+    int y = 2;
 
-    metricLabel.setBounds(metricX, y + 1, metricW, h - 2);
+    int boxH = std::max(18, h - 14);
+    metricLabel.setBounds(metricX, y + 1, metricW, boxH - 2);
 
     // Syllable counter controls: [-] [16/16] [+]
     int counterW = 88;
@@ -316,7 +318,7 @@ void BarLineComponent::resized()
     int btnW = 18;
     int labelW = counterW - (btnW * 2) - 4;
     int btnH = 20;
-    int btnY = y + (h - btnH) / 2;
+    int btnY = y + (boxH - btnH) / 2;
 
     decSylBtn.setBounds(counterX, btnY, btnW, btnH);
     sylCountLabel.setBounds(counterX + btnW + 2, btnY, labelW, btnH);
