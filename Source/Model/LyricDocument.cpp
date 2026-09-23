@@ -381,6 +381,7 @@ void LyricDocument::pushUndoSnapshot()
     snap.barNotations = barNotations;
     snap.boldCells = boldCells;
     snap.cellAlignments = cellAlignments;
+    snap.showAlignmentControls = showAlignmentControls;
     snap.customCellColors = customCellColors;
     snap.customSpokenSyllableCounts = customSpokenSyllableCounts;
     snap.totalBars = totalBars;
@@ -408,6 +409,7 @@ void LyricDocument::undo()
     current.barNotations = barNotations;
     current.boldCells = boldCells;
     current.cellAlignments = cellAlignments;
+    current.showAlignmentControls = showAlignmentControls;
     current.customCellColors = customCellColors;
     current.customSpokenSyllableCounts = customSpokenSyllableCounts;
     current.totalBars = totalBars;
@@ -424,6 +426,7 @@ void LyricDocument::undo()
     barData = std::move(prev.barData);
     boldCells = std::move(prev.boldCells);
     cellAlignments = std::move(prev.cellAlignments);
+    showAlignmentControls = prev.showAlignmentControls;
     customCellColors = std::move(prev.customCellColors);
     customSpokenSyllableCounts = std::move(prev.customSpokenSyllableCounts);
     totalBars = prev.totalBars;
@@ -454,6 +457,7 @@ void LyricDocument::redo()
     current.barNotations = barNotations;
     current.boldCells = boldCells;
     current.cellAlignments = cellAlignments;
+    current.showAlignmentControls = showAlignmentControls;
     current.customCellColors = customCellColors;
     current.customSpokenSyllableCounts = customSpokenSyllableCounts;
     current.totalBars = totalBars;
@@ -470,6 +474,7 @@ void LyricDocument::redo()
     barData = std::move(next.barData);
     boldCells = std::move(next.boldCells);
     cellAlignments = std::move(next.cellAlignments);
+    showAlignmentControls = next.showAlignmentControls;
     customCellColors = std::move(next.customCellColors);
     customSpokenSyllableCounts = std::move(next.customSpokenSyllableCounts);
     totalBars = next.totalBars;
@@ -704,6 +709,20 @@ void LyricDocument::setSelectionAlignment(CellAlignment align)
             cellAlignments[cell] = align;
     }
     notifyChanged();
+}
+
+void LyricDocument::setShowAlignmentControls(bool show, bool notify)
+{
+    if (showAlignmentControls != show)
+    {
+        if (notify)
+            pushUndoSnapshot();
+
+        showAlignmentControls = show;
+
+        if (notify)
+            notifyChanged();
+    }
 }
 
 bool LyricDocument::hasCustomCellColor(int barIndex, int globalSyllableIndex) const
@@ -1460,6 +1479,7 @@ juce::ValueTree LyricDocument::toValueTree() const
     vt.setProperty("viewMode", (int)viewMode, nullptr);
     vt.setProperty("barHeight", barHeight, nullptr);
     vt.setProperty("darkMode", darkMode, nullptr);
+    vt.setProperty("showAlignmentControls", showAlignmentControls, nullptr);
     vt.setProperty("rhymeHighlight", rhymeClassifier.isEnabled(), nullptr);
     vt.setProperty("colorMode", (int)rhymeClassifier.getColorMode(), nullptr);
     vt.setProperty("customStanzaBreaksActive", customStanzaBreaksActive, nullptr);
@@ -1557,6 +1577,7 @@ void LyricDocument::fromValueTree(const juce::ValueTree& vt)
     viewMode = (ViewMode)(int)vt.getProperty("viewMode", (int)ModeScroll);
     barHeight = vt.getProperty("barHeight", 50);
     darkMode = vt.getProperty("darkMode", false);
+    showAlignmentControls = vt.getProperty("showAlignmentControls", false);
     NotebookLookAndFeel::setDarkMode(darkMode);
     if (vt.hasProperty("colorMode"))
     {

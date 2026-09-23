@@ -520,7 +520,7 @@ input.cell-active-input.align-left { text-align: left; }
 input.cell-active-input.align-center { text-align: center; }
 input.cell-active-input.align-right { text-align: right; }
 
-/* Cell Hover Alignment Controls (Strictly at Bottom Edge on Cell Hover Only) */
+/* Cell Alignment Controls (Visible concurrently only when body.show-align-controls is set) */
 .cell-align-panel {
   position: absolute;
   bottom: 1px;
@@ -533,7 +533,82 @@ input.cell-active-input.align-right { text-align: right; }
   z-index: 20;
   pointer-events: none;
 }
-.syllable-cell:hover .cell-align-panel {
+body.show-align-controls .cell-align-panel {
+  display: flex;
+}
+
+/* Syllable Cell Corner Hover Plus Button (+ alters line meter) */
+.cell-corner-add-btn {
+  position: absolute;
+  bottom: 1px;
+  width: 14px;
+  height: 14px;
+  background: var(--btn-bg);
+  border: 1px solid var(--copper-accent);
+  color: var(--copper-accent);
+  border-radius: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 35;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.08s, background 0.08s, color 0.08s;
+  pointer-events: auto;
+  padding: 0;
+}
+.cell-corner-add-btn:hover {
+  background: var(--copper-accent);
+  color: #ffffff;
+  transform: scale(1.15);
+}
+.cell-corner-add-btn.left {
+  left: 1px;
+  right: auto;
+}
+.cell-corner-add-btn.right {
+  right: 1px;
+  left: auto;
+}
+.syllable-cell:hover .cell-corner-add-btn {
+  display: flex;
+}
+
+/* Syllable Cell Center Bottom Minus Button (- removes cell from meter) */
+/* Positioned BELOW the center of the cell's bottom border so it never disrupts clicking inside the cell */
+.cell-bottom-remove-btn {
+  position: absolute;
+  bottom: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 15px;
+  height: 11px;
+  background: var(--btn-bg);
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  border-radius: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 36;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.08s, background 0.08s, color 0.08s;
+  pointer-events: auto;
+  padding: 0;
+}
+.cell-bottom-remove-btn:hover {
+  background: #ef4444;
+  color: #ffffff;
+  transform: translateX(-50%) scale(1.15);
+}
+.syllable-cell:hover .cell-bottom-remove-btn {
   display: flex;
 }
 
@@ -861,6 +936,63 @@ body.dark-mode .notation-box {
 body.dark-mode .notation-box:focus {
   border-color: var(--copper-hover);
   background: #18181b;
+}
+
+/* Keyboard Shortcuts Modal Dialog */
+#shortcuts-dialog .modal-content {
+  max-width: 580px;
+}
+
+.shortcuts-table {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.shortcut-category {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shortcut-category-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--copper-accent);
+  border-bottom: 1px solid var(--paper-rule);
+  padding-bottom: 2px;
+  margin-bottom: 2px;
+}
+
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 6px;
+  border-radius: 3px;
+  background: var(--paper-even);
+}
+
+.shortcut-key-badge {
+  font-family: "Consolas", monospace;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--copper-dark);
+}
+
+body.dark-mode .shortcut-key-badge {
+  color: var(--copper-hover);
+}
+
+.shortcut-description {
+  font-size: 12px;
+  color: var(--graphite);
 }
 
 @media (max-width: 1024px) {

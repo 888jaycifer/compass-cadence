@@ -60,6 +60,8 @@ set(COMPASS_CADENCE_SOURCES
     Source/UI/NotebookPageView.cpp
     Source/UI/VowelColorCustomizerDialog.h
     Source/UI/VowelColorCustomizerDialog.cpp
+    Source/UI/KeyboardShortcutsDialog.h
+    Source/UI/KeyboardShortcutsDialog.cpp
 )
 
 # -------------------------------------------------------------------------

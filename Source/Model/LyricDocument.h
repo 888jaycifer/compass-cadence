@@ -123,6 +123,8 @@ public:
     CellAlignment getCellAlignment(int barIndex, int globalSyllableIndex) const;
     void setCellAlignment(int barIndex, int globalSyllableIndex, CellAlignment align, bool notify = true);
     void setSelectionAlignment(CellAlignment align);
+    bool getShowAlignmentControls() const noexcept { return showAlignmentControls; }
+    void setShowAlignmentControls(bool show, bool notify = true);
 
     // Custom cell highlight colors (overrides phoneme rhyme tint)
     bool hasCustomCellColor(int barIndex, int globalSyllableIndex) const;
@@ -226,6 +228,7 @@ private:
         bool darkMode = false;
         bool customStanzaBreaksActive = false;
         std::set<int> stanzaBreaks;
+        bool showAlignmentControls = false;
     };
 
     MetricNotation defaultNotation;
@@ -240,6 +243,7 @@ private:
     BarSpacing barSpacing = Spacing4;
     ViewMode viewMode = ModeScroll;
     bool darkMode = false;
+    bool showAlignmentControls = false;
 
     // Ordered map of bar index to array of syllable strings (guarantees deterministic iteration)
     std::map<int, std::vector<juce::String>> barData;

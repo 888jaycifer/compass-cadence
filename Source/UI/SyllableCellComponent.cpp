@@ -42,32 +42,84 @@ public:
             return true;
         }
 
-        // Ctrl+Left / Cmd+Left: Align Left
+        // Ctrl+X / Cmd+X: Cut text to clipboard and remove from box
+        if (key == juce::KeyPress('x', juce::ModifierKeys::ctrlModifier, 0) ||
+            key == juce::KeyPress('x', juce::ModifierKeys::commandModifier, 0))
+        {
+            if (getHighlightedText().isNotEmpty())
+            {
+                cutToClipboard();
+                owner.commitText(getText().trim(), false);
+            }
+            else
+            {
+                juce::String all = getText().trim();
+                if (all.isNotEmpty())
+                {
+                    juce::SystemClipboard::copyTextToClipboard(all);
+                    setText("", juce::sendNotificationSync);
+                    owner.commitText("", false);
+                }
+            }
+            return true;
+        }
+
+        // Ctrl+Left / Cmd+Left / Alt+Left: Align Left
         if (key == juce::KeyPress(juce::KeyPress::leftKey, juce::ModifierKeys::ctrlModifier, 0) ||
-            key == juce::KeyPress(juce::KeyPress::leftKey, juce::ModifierKeys::commandModifier, 0))
+            key == juce::KeyPress(juce::KeyPress::leftKey, juce::ModifierKeys::commandModifier, 0) ||
+            key == juce::KeyPress(juce::KeyPress::leftKey, juce::ModifierKeys::altModifier, 0))
         {
             owner.setAlignment(LyricDocument::AlignLeft);
             setJustification(juce::Justification::centredLeft);
             return true;
         }
 
-        // Ctrl+Right / Cmd+Right: Align Right
+        // Ctrl+Right / Cmd+Right / Alt+Right: Align Right
         if (key == juce::KeyPress(juce::KeyPress::rightKey, juce::ModifierKeys::ctrlModifier, 0) ||
-            key == juce::KeyPress(juce::KeyPress::rightKey, juce::ModifierKeys::commandModifier, 0))
+            key == juce::KeyPress(juce::KeyPress::rightKey, juce::ModifierKeys::commandModifier, 0) ||
+            key == juce::KeyPress(juce::KeyPress::rightKey, juce::ModifierKeys::altModifier, 0))
         {
             owner.setAlignment(LyricDocument::AlignRight);
             setJustification(juce::Justification::centredRight);
             return true;
         }
 
-        // Ctrl+Up / Ctrl+Down: Align Center
+        // Ctrl+Up / Ctrl+Down / Alt+Up / Alt+Down: Align Center
         if (key == juce::KeyPress(juce::KeyPress::upKey, juce::ModifierKeys::ctrlModifier, 0) ||
             key == juce::KeyPress(juce::KeyPress::upKey, juce::ModifierKeys::commandModifier, 0) ||
             key == juce::KeyPress(juce::KeyPress::downKey, juce::ModifierKeys::ctrlModifier, 0) ||
-            key == juce::KeyPress(juce::KeyPress::downKey, juce::ModifierKeys::commandModifier, 0))
+            key == juce::KeyPress(juce::KeyPress::downKey, juce::ModifierKeys::commandModifier, 0) ||
+            key == juce::KeyPress(juce::KeyPress::upKey, juce::ModifierKeys::altModifier, 0) ||
+            key == juce::KeyPress(juce::KeyPress::downKey, juce::ModifierKeys::altModifier, 0))
         {
             owner.setAlignment(LyricDocument::AlignCenter);
             setJustification(juce::Justification::centred);
+            return true;
+        }
+
+        // Alt+Shift+=: Insert syllable box before
+        if (key == juce::KeyPress('=', juce::ModifierKeys::altModifier | juce::ModifierKeys::shiftModifier, 0) ||
+            key == juce::KeyPress('+', juce::ModifierKeys::altModifier, 0))
+        {
+            owner.commitText(getText().trim(), false);
+            owner.insertSyllableBox(false);
+            return true;
+        }
+
+        // Alt+= or Alt+Insert: Insert syllable box after
+        if (key == juce::KeyPress('=', juce::ModifierKeys::altModifier, 0) ||
+            key == juce::KeyPress(juce::KeyPress::insertKey, juce::ModifierKeys::altModifier, 0))
+        {
+            owner.commitText(getText().trim(), false);
+            owner.insertSyllableBox(true);
+            return true;
+        }
+
+        // Alt+- or Alt+Delete: Delete syllable box from meter
+        if (key == juce::KeyPress('-', juce::ModifierKeys::altModifier, 0) ||
+            key == juce::KeyPress(juce::KeyPress::deleteKey, juce::ModifierKeys::altModifier, 0))
+        {
+            owner.deleteSyllableBox();
             return true;
         }
 
@@ -189,6 +241,45 @@ public:
 
 private:
     SyllableCellComponent& owner;
+};
+
+class CornerAddButton : public juce::Button
+{
+public:
+    CornerAddButton() : juce::Button("+")
+    {
+        setTriggeredOnMouseDown(true);
+    }
+
+    void paintButton(juce::Graphics& g, bool isOver, bool) override
+    {
+        auto b = getLocalBounds().toFloat().reduced(0.5f);
+        g.setColour(isOver ? juce::Colour(0xFFD97706) : juce::Colour(0x30D97706));
+        g.fillRoundedRectangle(b, 2.0f);
+        g.setColour(isOver ? juce::Colours::white : juce::Colour(0xFFD97706));
+        g.setFont(juce::Font(juce::FontOptions("Segoe UI", 11.0f, juce::Font::bold)));
+        g.drawText("+", getLocalBounds(), juce::Justification::centred, false);
+    }
+};
+
+class BottomRemoveButton : public juce::Button
+{
+public:
+    BottomRemoveButton() : juce::Button("-")
+    {
+        setTriggeredOnMouseDown(true);
+        setTooltip("Remove syllable from meter (Alt+-)");
+    }
+
+    void paintButton(juce::Graphics& g, bool isOver, bool) override
+    {
+        auto b = getLocalBounds().toFloat().reduced(0.5f);
+        g.setColour(isOver ? juce::Colour(0xFFEF4444) : juce::Colour(0x35EF4444));
+        g.fillRoundedRectangle(b, 2.0f);
+        g.setColour(isOver ? juce::Colours::white : juce::Colour(0xFFEF4444));
+        g.setFont(juce::Font(juce::FontOptions("Segoe UI", 11.0f, juce::Font::bold)));
+        g.drawText("-", getLocalBounds(), juce::Justification::centred, false);
+    }
 };
 
 class AlignArrowButton : public juce::Button
@@ -479,6 +570,20 @@ SyllableCellComponent::SyllableCellComponent(LyricDocument& doc, int bar, int pu
     addChildComponent(alignRightBtn.get());
     alignRightBtn->setVisible(false);
 
+    cornerAddBtn = std::make_unique<CornerAddButton>();
+    cornerAddBtn->onClick = [this] {
+        document.insertSyllableInBar(barIndex, globalSyllableIndex, !isCornerLeft);
+    };
+    addChildComponent(cornerAddBtn.get());
+    cornerAddBtn->setVisible(false);
+
+    removeSyllableBtn = std::make_unique<BottomRemoveButton>();
+    removeSyllableBtn->onClick = [this] {
+        document.deleteSyllableInBar(barIndex, globalSyllableIndex);
+    };
+    addChildComponent(removeSyllableBtn.get());
+    removeSyllableBtn->setVisible(false);
+
     addMouseListener(this, true);
 
     updateContent();
@@ -529,15 +634,19 @@ void SyllableCellComponent::updateContent()
         }
     }
 
-    if (!isMouseOver(true))
+    bool showAlign = document.getShowAlignmentControls();
+    if (showAlign)
+    {
+        updateAlignButtonStates();
+        if (alignLeftBtn != nullptr)   { alignLeftBtn->setVisible(true);   alignLeftBtn->toFront(false); }
+        if (alignCenterBtn != nullptr) { alignCenterBtn->setVisible(true); alignCenterBtn->toFront(false); }
+        if (alignRightBtn != nullptr)  { alignRightBtn->setVisible(true);  alignRightBtn->toFront(false); }
+    }
+    else
     {
         if (alignLeftBtn != nullptr)   alignLeftBtn->setVisible(false);
         if (alignCenterBtn != nullptr) alignCenterBtn->setVisible(false);
         if (alignRightBtn != nullptr)  alignRightBtn->setVisible(false);
-    }
-    else
-    {
-        updateAlignButtonStates();
     }
 
     repaint();
@@ -837,12 +946,16 @@ void SyllableCellComponent::showContextMenu(const juce::MouseEvent&)
         else if (result == 501) // Cut
         {
             juce::String textToCopy = isMulti ? document.getSelectedText() : currentText;
-            juce::SystemClipboard::copyTextToClipboard(textToCopy);
+            if (textToCopy.isNotEmpty())
+                juce::SystemClipboard::copyTextToClipboard(textToCopy);
             if (isMulti)
                 document.deleteSelected();
             else
             {
+                currentText = "";
                 document.setSyllable(barIndex, globalSyllableIndex, "");
+                if (editor != nullptr)
+                    editor->setText("", false);
                 updateContent();
             }
         }
@@ -910,8 +1023,23 @@ void SyllableCellComponent::mouseDown(const juce::MouseEvent& e)
 {
     if (e.eventComponent == alignLeftBtn.get() ||
         e.eventComponent == alignCenterBtn.get() ||
-        e.eventComponent == alignRightBtn.get())
+        e.eventComponent == alignRightBtn.get() ||
+        e.eventComponent == cornerAddBtn.get() ||
+        e.eventComponent == removeSyllableBtn.get())
     {
+        return;
+    }
+
+    if (cornerAddBtn != nullptr && cornerAddBtn->isVisible() &&
+        cornerAddBtn->getBounds().expanded(1, 1).contains(e.getPosition()))
+    {
+        cornerAddBtn->triggerClick();
+        return;
+    }
+    if (removeSyllableBtn != nullptr && removeSyllableBtn->isVisible() &&
+        removeSyllableBtn->getBounds().expanded(1, 2).contains(e.getPosition()))
+    {
+        removeSyllableBtn->triggerClick();
         return;
     }
 
@@ -975,7 +1103,9 @@ void SyllableCellComponent::mouseDoubleClick(const juce::MouseEvent& e)
 {
     if (e.eventComponent == alignLeftBtn.get() ||
         e.eventComponent == alignCenterBtn.get() ||
-        e.eventComponent == alignRightBtn.get())
+        e.eventComponent == alignRightBtn.get() ||
+        e.eventComponent == cornerAddBtn.get() ||
+        e.eventComponent == removeSyllableBtn.get())
     {
         return;
     }
@@ -984,33 +1114,76 @@ void SyllableCellComponent::mouseDoubleClick(const juce::MouseEvent& e)
     startEditing();
 }
 
-void SyllableCellComponent::mouseEnter(const juce::MouseEvent&)
+void SyllableCellComponent::mouseEnter(const juce::MouseEvent& e)
 {
-    updateAlignButtonStates();
-    if (alignLeftBtn != nullptr)   { alignLeftBtn->setVisible(true);   alignLeftBtn->toFront(false); }
-    if (alignCenterBtn != nullptr) { alignCenterBtn->setVisible(true); alignCenterBtn->toFront(false); }
-    if (alignRightBtn != nullptr)  { alignRightBtn->setVisible(true);  alignRightBtn->toFront(false); }
+    updateCornerAddButtonPosition((float)e.x);
+    if (removeSyllableBtn != nullptr)
+    {
+        removeSyllableBtn->setVisible(true);
+        removeSyllableBtn->toFront(false);
+    }
 }
 
 void SyllableCellComponent::mouseExit(const juce::MouseEvent&)
 {
     if (!isMouseOver(true))
     {
-        if (alignLeftBtn != nullptr)   alignLeftBtn->setVisible(false);
-        if (alignCenterBtn != nullptr) alignCenterBtn->setVisible(false);
-        if (alignRightBtn != nullptr)  alignRightBtn->setVisible(false);
+        if (cornerAddBtn != nullptr)   cornerAddBtn->setVisible(false);
+        if (removeSyllableBtn != nullptr) removeSyllableBtn->setVisible(false);
     }
 }
 
-void SyllableCellComponent::mouseMove(const juce::MouseEvent&)
+void SyllableCellComponent::mouseMove(const juce::MouseEvent& e)
 {
-    if (alignCenterBtn != nullptr && !alignCenterBtn->isVisible())
+    updateCornerAddButtonPosition((float)e.x);
+    if (removeSyllableBtn != nullptr && !removeSyllableBtn->isVisible())
     {
-        updateAlignButtonStates();
-        if (alignLeftBtn != nullptr)   { alignLeftBtn->setVisible(true);   alignLeftBtn->toFront(false); }
-        if (alignCenterBtn != nullptr) { alignCenterBtn->setVisible(true); alignCenterBtn->toFront(false); }
-        if (alignRightBtn != nullptr)  { alignRightBtn->setVisible(true);  alignRightBtn->toFront(false); }
+        removeSyllableBtn->setVisible(true);
+        removeSyllableBtn->toFront(false);
     }
+}
+
+void SyllableCellComponent::updateCornerAddButtonPosition(float mouseX)
+{
+    bool onLeft = (mouseX < (float)getWidth() * 0.5f);
+    isCornerLeft = onLeft;
+    int btnW = 12;
+    int btnH = 12;
+    int btnY = getHeight() - btnH - 1;
+    int btnX = isCornerLeft ? 2 : (getWidth() - btnW - 2);
+
+    if (cornerAddBtn != nullptr)
+    {
+        cornerAddBtn->setBounds(btnX, btnY, btnW, btnH);
+        cornerAddBtn->setTooltip(isCornerLeft ? "Insert syllable before (Alt+Shift+=)"
+                                              : "Insert syllable after (Alt+=)");
+        cornerAddBtn->setVisible(true);
+        cornerAddBtn->toFront(false);
+    }
+}
+
+void SyllableCellComponent::insertSyllableBox(bool insertAfter)
+{
+    stopEditing();
+    document.insertSyllableInBar(barIndex, globalSyllableIndex, insertAfter);
+}
+
+void SyllableCellComponent::deleteSyllableBox()
+{
+    stopEditing();
+    document.deleteSyllableInBar(barIndex, globalSyllableIndex);
+}
+
+bool SyllableCellComponent::hitTest(int x, int y)
+{
+    if (juce::Component::hitTest(x, y))
+        return true;
+    if (removeSyllableBtn != nullptr && removeSyllableBtn->isVisible())
+    {
+        if (removeSyllableBtn->getBounds().expanded(1, 2).contains(x, y))
+            return true;
+    }
+    return false;
 }
 
 void SyllableCellComponent::updateAlignButtonStates()
@@ -1029,7 +1202,9 @@ void SyllableCellComponent::mouseDrag(const juce::MouseEvent& e)
     if (editor != nullptr ||
         e.eventComponent == alignLeftBtn.get() ||
         e.eventComponent == alignCenterBtn.get() ||
-        e.eventComponent == alignRightBtn.get())
+        e.eventComponent == alignRightBtn.get() ||
+        e.eventComponent == cornerAddBtn.get() ||
+        e.eventComponent == removeSyllableBtn.get())
     {
         return;
     }
@@ -1059,6 +1234,51 @@ bool SyllableCellComponent::keyPressed(const juce::KeyPress& key)
     if (key.isKeyCode(juce::KeyPress::deleteKey) || key.isKeyCode(juce::KeyPress::backspaceKey))
     {
         document.deleteSelected();
+        return true;
+    }
+
+    // Ctrl+X / Cmd+X: Cut selected cell(s) or active cell text to clipboard and remove
+    if (key == juce::KeyPress('x', juce::ModifierKeys::ctrlModifier, 0) ||
+        key == juce::KeyPress('x', juce::ModifierKeys::commandModifier, 0))
+    {
+        bool isMulti = (document.getSelectedCells().size() > 1);
+        juce::String textToCopy = isMulti ? document.getSelectedText() : currentText;
+        if (textToCopy.isNotEmpty())
+            juce::SystemClipboard::copyTextToClipboard(textToCopy);
+        if (isMulti)
+            document.deleteSelected();
+        else
+        {
+            currentText = "";
+            document.setSyllable(barIndex, globalSyllableIndex, "");
+            updateContent();
+        }
+        return true;
+    }
+
+    // Ctrl+C / Cmd+C: Copy text
+    if (key == juce::KeyPress('c', juce::ModifierKeys::ctrlModifier, 0) ||
+        key == juce::KeyPress('c', juce::ModifierKeys::commandModifier, 0))
+    {
+        bool isMulti = (document.getSelectedCells().size() > 1);
+        juce::String textToCopy = isMulti ? document.getSelectedText() : currentText;
+        if (textToCopy.isNotEmpty())
+            juce::SystemClipboard::copyTextToClipboard(textToCopy);
+        return true;
+    }
+
+    // Ctrl+V / Cmd+V: Paste text
+    if (key == juce::KeyPress('v', juce::ModifierKeys::ctrlModifier, 0) ||
+        key == juce::KeyPress('v', juce::ModifierKeys::commandModifier, 0))
+    {
+        juce::String clip = juce::SystemClipboard::getTextFromClipboard();
+        if (clip.isNotEmpty())
+        {
+            if (clip.containsAnyOf(" \t\r\n") || SyllableSplitter::splitLineIntoSyllables(clip).size() > 1)
+                handleMultiWordPaste(clip);
+            else
+                commitText(clip, false);
+        }
         return true;
     }
 
@@ -1108,29 +1328,57 @@ bool SyllableCellComponent::keyPressed(const juce::KeyPress& key)
         return true;
     }
 
-    // Ctrl+Left / Cmd+Left: Align Left
-    if (key == juce::KeyPress(juce::KeyPress::leftKey, juce::ModifierKeys::ctrlModifier, 0) ||
+    // Alignment: Alt+Left / Ctrl+Left (Align Left)
+    if (key == juce::KeyPress(juce::KeyPress::leftKey, juce::ModifierKeys::altModifier, 0) ||
+        key == juce::KeyPress(juce::KeyPress::leftKey, juce::ModifierKeys::ctrlModifier, 0) ||
         key == juce::KeyPress(juce::KeyPress::leftKey, juce::ModifierKeys::commandModifier, 0))
     {
         document.setSelectionAlignment(LyricDocument::AlignLeft);
         return true;
     }
 
-    // Ctrl+Right / Cmd+Right: Align Right
-    if (key == juce::KeyPress(juce::KeyPress::rightKey, juce::ModifierKeys::ctrlModifier, 0) ||
+    // Alignment: Alt+Right / Ctrl+Right (Align Right)
+    if (key == juce::KeyPress(juce::KeyPress::rightKey, juce::ModifierKeys::altModifier, 0) ||
+        key == juce::KeyPress(juce::KeyPress::rightKey, juce::ModifierKeys::ctrlModifier, 0) ||
         key == juce::KeyPress(juce::KeyPress::rightKey, juce::ModifierKeys::commandModifier, 0))
     {
         document.setSelectionAlignment(LyricDocument::AlignRight);
         return true;
     }
 
-    // Ctrl+Up / Ctrl+Down: Align Center
-    if (key == juce::KeyPress(juce::KeyPress::upKey, juce::ModifierKeys::ctrlModifier, 0) ||
+    // Alignment: Alt+Down / Alt+Up / Ctrl+Down / Ctrl+Up (Align Center)
+    if (key == juce::KeyPress(juce::KeyPress::downKey, juce::ModifierKeys::altModifier, 0) ||
+        key == juce::KeyPress(juce::KeyPress::upKey, juce::ModifierKeys::altModifier, 0) ||
+        key == juce::KeyPress(juce::KeyPress::upKey, juce::ModifierKeys::ctrlModifier, 0) ||
         key == juce::KeyPress(juce::KeyPress::upKey, juce::ModifierKeys::commandModifier, 0) ||
         key == juce::KeyPress(juce::KeyPress::downKey, juce::ModifierKeys::ctrlModifier, 0) ||
         key == juce::KeyPress(juce::KeyPress::downKey, juce::ModifierKeys::commandModifier, 0))
     {
         document.setSelectionAlignment(LyricDocument::AlignCenter);
+        return true;
+    }
+
+    // Meter: Alt+Shift+= (Insert Syllable Before)
+    if (key == juce::KeyPress('=', juce::ModifierKeys::altModifier | juce::ModifierKeys::shiftModifier, 0) ||
+        key == juce::KeyPress('+', juce::ModifierKeys::altModifier, 0))
+    {
+        insertSyllableBox(false);
+        return true;
+    }
+
+    // Meter: Alt+= or Alt+Insert (Insert Syllable After)
+    if (key == juce::KeyPress('=', juce::ModifierKeys::altModifier, 0) ||
+        key == juce::KeyPress(juce::KeyPress::insertKey, juce::ModifierKeys::altModifier, 0))
+    {
+        insertSyllableBox(true);
+        return true;
+    }
+
+    // Meter: Alt+- or Alt+Delete (Remove Syllable Box from Meter)
+    if (key == juce::KeyPress('-', juce::ModifierKeys::altModifier, 0) ||
+        key == juce::KeyPress(juce::KeyPress::deleteKey, juce::ModifierKeys::altModifier, 0))
+    {
+        deleteSyllableBox();
         return true;
     }
 
@@ -1319,6 +1567,22 @@ void SyllableCellComponent::resized()
 
     if (alignCenterBtn != nullptr)
         alignCenterBtn->setBounds(underlineX, underlineY, underlineW, underlineH);
+
+    // Corner '+' hover button: 12x12
+    int cornerW = 12;
+    int cornerH = 12;
+    int cornerY = cellH - cornerH - 1;
+    int cornerX = isCornerLeft ? 2 : (cellW - cornerW - 2);
+    if (cornerAddBtn != nullptr)
+        cornerAddBtn->setBounds(cornerX, cornerY, cornerW, cornerH);
+
+    // Centered '-' button BELOW the center of the cell's bottom border
+    int remW = 14;
+    int remH = 10;
+    int remX = (cellW - remW) / 2;
+    int remY = cellH - 7;
+    if (removeSyllableBtn != nullptr)
+        removeSyllableBtn->setBounds(remX, remY, remW, remH);
 }
 
 void SyllableCellComponent::commitText(const juce::String& text, bool advanceFocus)

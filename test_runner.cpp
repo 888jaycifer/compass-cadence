@@ -1015,6 +1015,32 @@ int main(int argc, char* argv[])
 
             std::cout << "  [10.27] Direct Syllable Insertion & Deletion (Individual Line Meter Altering) passed!" << std::endl;
         }
+
+        // [10.28] Show Alignment Controls Toggle & Persistence
+        {
+            auto& docAlign = proc->getLyricDocument();
+            jassert(!docAlign.getShowAlignmentControls()); // default false
+            docAlign.setShowAlignmentControls(true);
+            jassert(docAlign.getShowAlignmentControls());
+            
+            // Undo/Redo
+            docAlign.undo();
+            jassert(!docAlign.getShowAlignmentControls());
+            docAlign.redo();
+            jassert(docAlign.getShowAlignmentControls());
+
+            // ValueTree persistence
+            auto vt = docAlign.toValueTree();
+            CompassCadence::LyricDocument docRestored;
+            docRestored.fromValueTree(vt);
+            jassert(docRestored.getShowAlignmentControls());
+
+            docAlign.setShowAlignmentControls(false);
+            jassert(!docAlign.getShowAlignmentControls());
+            std::cout << "  [10.28] Show Alignment Controls Toggle & Persistence passed!" << std::endl;
+        }
+
+        editor.reset();
         proc.reset();
         std::cout << "[11] Clean teardown succeeded!" << std::endl;
     }

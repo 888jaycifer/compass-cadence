@@ -1,6 +1,7 @@
 #include "NotebookHeaderComponent.h"
 #include "NotebookLookAndFeel.h"
 #include "VowelColorCustomizerDialog.h"
+#include "KeyboardShortcutsDialog.h"
 
 namespace CompassCadence
 {
@@ -268,6 +269,23 @@ NotebookHeaderComponent::NotebookHeaderComponent(CompassCadenceAudioProcessor& p
     };
     addAndMakeVisible(songsBtn);
 
+    // Alignment Toggle Button
+    alignToggleBtn.setClickingTogglesState(false);
+    alignToggleBtn.setTooltip("Toggle concurrent visibility of alignment buttons on all syllable boxes.");
+    alignToggleBtn.onClick = [this] {
+        if (document == nullptr) return;
+        document->setShowAlignmentControls(!document->getShowAlignmentControls());
+        updateAlignToggleDisplay();
+    };
+    addAndMakeVisible(alignToggleBtn);
+
+    // Keyboard Shortcuts Button (No emojis)
+    shortcutsBtn.setTooltip("View keyboard shortcuts and metric alteration controls.");
+    shortcutsBtn.onClick = [this] {
+        KeyboardShortcutsDialog::showDialog(this);
+    };
+    addAndMakeVisible(shortcutsBtn);
+
     // Dark Mode Toggle
     darkModeToggleBtn.setClickingTogglesState(false);
     darkModeToggleBtn.setTooltip("Toggle between Warm Paper Light Mode and High-Contrast Dark Mode.");
@@ -413,6 +431,7 @@ NotebookHeaderComponent::NotebookHeaderComponent(CompassCadenceAudioProcessor& p
     updateNotationDisplay();
     updateViewModeDisplay();
     updateDarkModeDisplay();
+    updateAlignToggleDisplay();
     updateDAWStatus(processor.getTransportState());
 }
 
@@ -436,6 +455,7 @@ void NotebookHeaderComponent::setDocument(LyricDocument& newDoc)
         updatePageDisplay();
         updateViewModeDisplay();
         updateDarkModeDisplay();
+        updateAlignToggleDisplay();
         updateRhymeButtonDisplay();
         refreshPresetCombo();
         repaint();
@@ -634,12 +654,21 @@ void NotebookHeaderComponent::showColorModeMenu()
     });
 }
 
+void NotebookHeaderComponent::updateAlignToggleDisplay()
+{
+    if (document == nullptr) return;
+    bool show = document->getShowAlignmentControls();
+    alignToggleBtn.setToggleState(show, juce::dontSendNotification);
+    alignToggleBtn.setButtonText(show ? "Align: ON" : "Align: OFF");
+}
+
 void NotebookHeaderComponent::lyricDocumentChanged()
 {
     updateNotationDisplay();
     updateViewModeDisplay();
     updateDarkModeDisplay();
     updateRhymeButtonDisplay();
+    updateAlignToggleDisplay();
 }
 
 void NotebookHeaderComponent::metricNotationChanged(const MetricNotation&)
@@ -997,6 +1026,12 @@ void NotebookHeaderComponent::resized()
     curX += 56 + 6;
 
     songsBtn.setBounds(curX, row2Y, 56, 26);
+    curX += 56 + 6;
+
+    alignToggleBtn.setBounds(curX, row2Y, 78, 26);
+    curX += 78 + 6;
+
+    shortcutsBtn.setBounds(curX, row2Y, 72, 26);
 
     // Right side of Row 2: Page controls & View mode toggle & Dark mode toggle
     int pageRight = bounds.getWidth() - 16;

@@ -516,6 +516,7 @@
       this.redoStack = [];
       this.selectedCells = new Set();
       this.activeEditor = null; // { b, pIdx, sIdx, inputEl }
+      this.showAlignmentControls = false;
       this.customVowelColors = JSON.parse(localStorage.getItem('cc_vowel_colors') || '{}');
 
       this.initBars();
@@ -622,6 +623,9 @@
       this.copyBtn = document.getElementById('copy-btn');
       this.exportBtn = document.getElementById('export-btn');
       this.songsBtn = document.getElementById('songs-btn');
+      this.alignToggleBtn = document.getElementById('align-toggle-btn');
+      this.shortcutsBtn = document.getElementById('shortcuts-btn');
+      this.shortcutsDialog = document.getElementById('shortcuts-dialog');
 
       this.darkModeBtn = document.getElementById('dark-mode-btn');
       this.viewModeBtn = document.getElementById('view-mode-btn');
@@ -644,6 +648,22 @@
         this.vowelPaletteBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           this.openVowelPaletteDialog();
+        });
+      }
+
+      if (this.alignToggleBtn) {
+        this.alignToggleBtn.addEventListener('click', () => {
+          this.showAlignmentControls = !this.showAlignmentControls;
+          document.body.classList.toggle('show-align-controls', this.showAlignmentControls);
+          this.alignToggleBtn.classList.toggle('toggled', this.showAlignmentControls);
+          this.alignToggleBtn.textContent = this.showAlignmentControls ? 'Align: ON' : 'Align: OFF';
+        });
+      }
+
+      if (this.shortcutsBtn) {
+        this.shortcutsBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.openShortcutsDialog();
         });
       }
 
@@ -793,6 +813,13 @@
           if (((e.ctrlKey || e.metaKey) && e.key === 'y') || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Z')) {
             e.preventDefault(); this.redo();
           }
+
+          // Shortcuts Cheat Sheet Dialog (? or F1 or Ctrl+/)
+          if (e.key === '?' || e.key === 'F1' || ((e.ctrlKey || e.metaKey) && e.key === '/')) {
+            e.preventDefault();
+            this.openShortcutsDialog();
+            return;
+          }
           
           // Selection Shortcuts
           if (this.selectedCells.size > 0) {
@@ -808,6 +835,37 @@
               e.preventDefault(); this.joinSelection();
             } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
               e.preventDefault(); this.splitSelection();
+            } else if (e.altKey && e.key === 'ArrowLeft') {
+              e.preventDefault();
+              this.selectedCells.forEach(id => {
+                const [cb, cp, cs] = id.split('-').map(Number);
+                this.setCellAlignment(cb, cp, cs, 'left');
+              });
+              this.renderPage();
+            } else if (e.altKey && e.key === 'ArrowRight') {
+              e.preventDefault();
+              this.selectedCells.forEach(id => {
+                const [cb, cp, cs] = id.split('-').map(Number);
+                this.setCellAlignment(cb, cp, cs, 'right');
+              });
+              this.renderPage();
+            } else if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+              e.preventDefault();
+              this.selectedCells.forEach(id => {
+                const [cb, cp, cs] = id.split('-').map(Number);
+                this.setCellAlignment(cb, cp, cs, 'center');
+              });
+              this.renderPage();
+            } else if (e.altKey && (e.key === '=' || e.key === '+' || e.key === 'Insert')) {
+              e.preventDefault();
+              const firstId = Array.from(this.selectedCells)[0];
+              const [cb, cp, cs] = firstId.split('-').map(Number);
+              this.insertSyllableInBar(cb, cp, cs, !e.shiftKey);
+            } else if (e.altKey && (e.key === '-' || e.key === 'Delete')) {
+              e.preventDefault();
+              const firstId = Array.from(this.selectedCells)[0];
+              const [cb, cp, cs] = firstId.split('-').map(Number);
+              this.deleteSyllableInBar(cb, cp, cs);
             } else if (e.key === 'Delete' || e.key === 'Backspace') {
               e.preventDefault(); this.clearSelection();
             } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -1151,7 +1209,7 @@
             textSpan.textContent = syl.text;
             cell.appendChild(textSpan);
 
-            // Hover Alignment Controls
+            // Alignment Controls (Displayed concurrently across cells when showAlignmentControls is true)
             const alignPanel = document.createElement('div');
             alignPanel.className = 'cell-align-panel';
             alignPanel.innerHTML = `
@@ -1175,9 +1233,51 @@
 
             cell.appendChild(alignPanel);
 
+            // Corner Add Button (+ alters line meter at closest corner)
+            const cornerAddBtn = document.createElement('button');
+            cornerAddBtn.className = 'cell-corner-add-btn right';
+            cornerAddBtn.textContent = '+';
+            cornerAddBtn.title = 'Add syllable box to line meter (+1 subdivision)';
+            cornerAddBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const insertBefore = cornerAddBtn.classList.contains('left');
+              this.insertSyllableInBar(b, pIdx, sIdx, !insertBefore);
+            });
+            cell.appendChild(cornerAddBtn);
+
+            // Centered Below-Border Minus Button (- removes cell from meter)
+            const bottomRemoveBtn = document.createElement('button');
+            bottomRemoveBtn.className = 'cell-bottom-remove-btn';
+            bottomRemoveBtn.textContent = '-';
+            bottomRemoveBtn.title = 'Remove syllable box from line meter (-1 subdivision)';
+            bottomRemoveBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              this.deleteSyllableInBar(b, pIdx, sIdx);
+            });
+            cell.appendChild(bottomRemoveBtn);
+
+            // Mouse move updates corner + position to closest bottom corner
+            cell.addEventListener('mousemove', (e) => {
+              const rect = cell.getBoundingClientRect();
+              const relX = e.clientX - rect.left;
+              if (relX < rect.width / 2) {
+                if (!cornerAddBtn.classList.contains('left')) {
+                  cornerAddBtn.classList.remove('right');
+                  cornerAddBtn.classList.add('left');
+                  cornerAddBtn.title = 'Insert syllable box before (+1 subdivision)';
+                }
+              } else {
+                if (!cornerAddBtn.classList.contains('right')) {
+                  cornerAddBtn.classList.remove('left');
+                  cornerAddBtn.classList.add('right');
+                  cornerAddBtn.title = 'Insert syllable box after (+1 subdivision)';
+                }
+              }
+            });
+
             // Cell Click & Drag Selection
             cell.addEventListener('mousedown', (e) => {
-              if (e.target.closest('.cell-align-panel')) return;
+              if (e.target.closest('.cell-align-panel') || e.target.closest('.cell-corner-add-btn') || e.target.closest('.cell-bottom-remove-btn')) return;
               if (e.button !== 0) return; // Only left click
               this.isDraggingSelection = true;
               this.dragStartCell = { b, pIdx, sIdx };
@@ -1197,7 +1297,7 @@
             });
 
             cell.addEventListener('click', (e) => {
-              if (e.target.closest('.cell-align-panel')) return;
+              if (e.target.closest('.cell-align-panel') || e.target.closest('.cell-corner-add-btn') || e.target.closest('.cell-bottom-remove-btn')) return;
               if (this.selectedCells.size <= 1) {
                 this.activateCellEditor(b, pIdx, sIdx);
               }
@@ -1423,23 +1523,60 @@
           return;
         }
 
-        // Ctrl+Left / Right / Up / Down: Alignment
-        if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowLeft') {
+        // Ctrl+X (Cut): Guarantee text is copied to clipboard AND immediately removed from input and cell
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x') {
+          e.preventDefault();
+          const start = input.selectionStart;
+          const end = input.selectionEnd;
+          let cutText = '';
+          if (start !== end) {
+            cutText = input.value.substring(start, end);
+            input.value = input.value.substring(0, start) + input.value.substring(end);
+            input.setSelectionRange(start, start);
+          } else {
+            cutText = input.value;
+            input.value = '';
+          }
+          syl.text = input.value;
+          this.updateRowCounter(b);
+          if (cutText) {
+            navigator.clipboard.writeText(cutText).catch(() => {});
+          }
+          return;
+        }
+
+        // Alt+Left / Right / Up / Down OR Ctrl+Left / Right / Up / Down: Alignment
+        if (((e.ctrlKey || e.metaKey) || e.altKey) && e.key === 'ArrowLeft') {
           e.preventDefault();
           this.setCellAlignment(b, pIdx, sIdx, 'left');
           input.className = `cell-active-input align-left ${syl.bold ? 'bold' : ''}`;
           return;
         }
-        if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowRight') {
+        if (((e.ctrlKey || e.metaKey) || e.altKey) && e.key === 'ArrowRight') {
           e.preventDefault();
           this.setCellAlignment(b, pIdx, sIdx, 'right');
           input.className = `cell-active-input align-right ${syl.bold ? 'bold' : ''}`;
           return;
         }
-        if ((e.ctrlKey || e.metaKey) && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        if (((e.ctrlKey || e.metaKey) || e.altKey) && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
           e.preventDefault();
           this.setCellAlignment(b, pIdx, sIdx, 'center');
           input.className = `cell-active-input align-center ${syl.bold ? 'bold' : ''}`;
+          return;
+        }
+
+        // Alt+= / Alt+Shift+= / Alt+- / Insert / Delete: Direct Meter Altering
+        if (e.altKey && (e.key === '=' || e.key === '+' || e.key === 'Insert')) {
+          e.preventDefault();
+          const insertBefore = e.shiftKey;
+          this.closeActiveEditor();
+          this.insertSyllableInBar(b, pIdx, sIdx, !insertBefore);
+          return;
+        }
+        if (e.altKey && (e.key === '-' || e.key === 'Delete')) {
+          e.preventDefault();
+          this.closeActiveEditor();
+          this.deleteSyllableInBar(b, pIdx, sIdx);
           return;
         }
       });
@@ -1642,8 +1779,17 @@
     }
 
     cutSelection() {
-       this.copySelection();
-       this.clearSelection();
+       if (this.selectedCells.size === 0) return;
+       this.pushSnapshot();
+       const cells = this.getSortedSelection();
+       const text = cells.map(c => this.tabs[this.activeTabIdx].bars[c.b].syllables[c.p][c.s].text).filter(t => t.length > 0).join(' ');
+       cells.forEach(c => {
+           this.tabs[this.activeTabIdx].bars[c.b].syllables[c.p][c.s].text = '';
+       });
+       if (text) {
+         navigator.clipboard.writeText(text).catch(() => {});
+       }
+       this.renderPage();
     }
 
     pasteIntoSelection() {
@@ -2090,6 +2236,120 @@
         this.resetVowelColorsToDefaults();
         renderBody();
       };
+    }
+
+    openShortcutsDialog() {
+      if (!this.shortcutsDialog) return;
+
+      const shortcutsData = [
+        {
+          category: 'Navigation & Typing Flow',
+          items: [
+            { key: 'Space', desc: 'Toggle Transport Play/Stop (or advance typing flow in box)' },
+            { key: 'Hyphen (-)', desc: 'Append hyphen and advance to next syllable box' },
+            { key: 'Tab / Shift+Tab', desc: 'Jump forward / backward through syllable boxes' },
+            { key: 'Enter', desc: 'Jump to first syllable box of next line' },
+            { key: 'Arrow Keys', desc: 'Navigate text cursor or jump to adjacent boxes' },
+            { key: 'Backspace (empty box)', desc: 'Retreat to previous syllable box' }
+          ]
+        },
+        {
+          category: 'Meter Altering (Line Subdivisions)',
+          items: [
+            { key: 'Alt + = / Alt + Insert', desc: 'Insert syllable box after (+1 subdivision to line meter)' },
+            { key: 'Alt + Shift + =', desc: 'Insert syllable box before (+1 subdivision to line meter)' },
+            { key: 'Alt + - / Alt + Delete', desc: 'Remove syllable box from line meter (-1 subdivision)' },
+            { key: 'Hover Bottom Corner (+)', desc: 'Hover bottom-left or bottom-right corner to insert box' },
+            { key: 'Below Border (-)', desc: 'Centered button below bottom border to remove cell from meter' }
+          ]
+        },
+        {
+          category: 'Formatting & Selection',
+          items: [
+            { key: 'Alt + Left / Ctrl + Left', desc: 'Align cell text Left' },
+            { key: 'Alt + Down / Ctrl + Down', desc: 'Align cell text Center / Down' },
+            { key: 'Alt + Right / Ctrl + Right', desc: 'Align cell text Right' },
+            { key: 'Ctrl + B', desc: 'Toggle Bold Emphasis notation' },
+            { key: 'Click + Drag', desc: 'Select rectangular block of syllable cells' },
+            { key: 'Ctrl + J', desc: 'Join selected syllable cells into a single word' },
+            { key: 'Ctrl + K', desc: 'Split selected multi-word cell into multiple cells' }
+          ]
+        },
+        {
+          category: 'Clipboard & History',
+          items: [
+            { key: 'Ctrl + X', desc: 'Cut text from box or selection (copies and removes text)' },
+            { key: 'Ctrl + C', desc: 'Copy selected cell(s) or full lyric line to clipboard' },
+            { key: 'Ctrl + V', desc: 'Paste text with automatic multi-syllable distribution' },
+            { key: 'Ctrl + Z', desc: 'Undo last edit or meter alteration' },
+            { key: 'Ctrl + Y / Ctrl + Shift + Z', desc: 'Redo last undone action' },
+            { key: 'Delete / Backspace', desc: 'Clear text in selected cell(s)' }
+          ]
+        },
+        {
+          category: 'View & Controls',
+          items: [
+            { key: 'Align: OFF / ON', desc: 'Header toggle to concurrently show/hide alignment buttons' },
+            { key: '? / F1', desc: 'Open this Keyboard Shortcuts cheat sheet' }
+          ]
+        }
+      ];
+
+      this.shortcutsDialog.className = 'modal-overlay';
+      this.shortcutsDialog.style.display = 'flex';
+      this.shortcutsDialog.innerHTML = `
+        <div class="modal-content" onclick="event.stopPropagation()">
+          <div class="modal-header">
+            <h3>Keyboard Shortcuts</h3>
+            <button class="vst-btn" id="shortcuts-close-btn" style="font-size:16px;line-height:1;padding:2px 8px;">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="shortcuts-table">
+              ${shortcutsData.map(cat => `
+                <div class="shortcut-category">
+                  <div class="shortcut-category-title">${cat.category}</div>
+                  ${cat.items.map(it => `
+                    <div class="shortcut-row">
+                      <span class="shortcut-description">${it.desc}</span>
+                      <span class="shortcut-key-badge">${it.key}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="vst-btn" id="shortcuts-reset-btn" title="Reset all shortcuts and controls to defaults">Reset to Defaults</button>
+            <button class="vst-btn" id="shortcuts-done-btn" style="background:var(--copper-accent);color:#fff;">Close</button>
+          </div>
+        </div>
+      `;
+
+      const closeDialog = () => {
+        this.shortcutsDialog.style.display = 'none';
+      };
+
+      this.shortcutsDialog.onclick = (e) => {
+        if (e.target === this.shortcutsDialog) closeDialog();
+      };
+      const closeBtn = document.getElementById('shortcuts-close-btn');
+      if (closeBtn) closeBtn.onclick = closeDialog;
+      const doneBtn = document.getElementById('shortcuts-done-btn');
+      if (doneBtn) doneBtn.onclick = closeDialog;
+
+      const resetBtn = document.getElementById('shortcuts-reset-btn');
+      if (resetBtn) {
+        resetBtn.onclick = () => {
+          this.showAlignmentControls = false;
+          document.body.classList.remove('show-align-controls');
+          if (this.alignToggleBtn) {
+            this.alignToggleBtn.classList.remove('toggled');
+            this.alignToggleBtn.textContent = 'Align: OFF';
+          }
+          this.renderPage();
+          closeDialog();
+        };
+      }
     }
 
     updateColorModeButton() {

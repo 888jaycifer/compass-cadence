@@ -23,6 +23,7 @@ public:
     void updatePageDisplay();
     void updateViewModeDisplay();
     void updateDarkModeDisplay();
+    void updateAlignToggleDisplay();
     void updateStandaloneTransportDisplay();
     void refreshPresetCombo();
     void promptSavePreset();
@@ -85,6 +86,8 @@ private:
     juce::TextButton copyBtn { "Copy" };
     juce::TextButton exportBtn { "Export" };
     juce::TextButton songsBtn { "Songs" };
+    juce::TextButton alignToggleBtn { "Align: OFF" };
+    juce::TextButton shortcutsBtn { "Shortcuts" };
 
     // View mode, Page navigation & Theme
     juce::TextButton darkModeToggleBtn;

@@ -48,6 +48,7 @@ public:
     void mouseExit(const juce::MouseEvent& e) override;
     void mouseMove(const juce::MouseEvent& e) override;
     bool keyPressed(const juce::KeyPress& key) override;
+    bool hitTest(int x, int y) override;
 
     // Actions
     void undoDocument();
@@ -55,6 +56,8 @@ public:
     void joinWithNext();
     void joinWithPrevious();
     void splitCurrent();
+    void insertSyllableBox(bool insertAfter);
+    void deleteSyllableBox();
 
     // TextEditor::Listener
     void textEditorTextChanged(juce::TextEditor& editor) override;
@@ -90,6 +93,11 @@ private:
     std::unique_ptr<juce::Button> alignCenterBtn;
     std::unique_ptr<juce::Button> alignRightBtn;
     void updateAlignButtonStates();
+
+    std::unique_ptr<juce::Button> cornerAddBtn;
+    std::unique_ptr<juce::Button> removeSyllableBtn;
+    bool isCornerLeft = false;
+    void updateCornerAddButtonPosition(float mouseX);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SyllableCellComponent)
 };
