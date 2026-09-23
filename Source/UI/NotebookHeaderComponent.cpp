@@ -29,7 +29,7 @@ NotebookHeaderComponent::NotebookHeaderComponent(CompassCadenceAudioProcessor& p
 
     // Notation Label & TextEditor
     notationLabel.setText("Metric Grid:", juce::dontSendNotification);
-    notationLabel.setFont(juce::Font(juce::FontOptions("Segoe UI", 12.0f, juce::Font::bold)));
+    notationLabel.setFont(juce::Font(juce::FontOptions("Calibri", 12.0f, juce::Font::bold)));
     notationLabel.setColour(juce::Label::textColourId, NotebookLookAndFeel::getGraphiteColour());
     notationLabel.setTooltip("Metric cross-rhythm notation [subdivisions per pulse]/pulses:beats (e.g. [333222]/6:4, [4444]/4:4).");
     addAndMakeVisible(notationLabel);
@@ -55,7 +55,7 @@ NotebookHeaderComponent::NotebookHeaderComponent(CompassCadenceAudioProcessor& p
 
     // Independent Pulse Steppers
     pulseStepperLabel.setText("Pulses: 4", juce::dontSendNotification);
-    pulseStepperLabel.setFont(juce::Font(juce::FontOptions("Segoe UI", 12.0f, juce::Font::plain)));
+    pulseStepperLabel.setFont(juce::Font(juce::FontOptions("Calibri", 12.0f, juce::Font::plain)));
     pulseStepperLabel.setColour(juce::Label::textColourId, NotebookLookAndFeel::getGraphiteColour());
     pulseStepperLabel.setTooltip("Current count of macro-pulse groups (N) spanning the bar.");
     addAndMakeVisible(pulseStepperLabel);
@@ -83,7 +83,7 @@ NotebookHeaderComponent::NotebookHeaderComponent(CompassCadenceAudioProcessor& p
 
     // Independent Beat Steppers
     beatStepperLabel.setText("Beats: 4", juce::dontSendNotification);
-    beatStepperLabel.setFont(juce::Font(juce::FontOptions("Segoe UI", 12.0f, juce::Font::plain)));
+    beatStepperLabel.setFont(juce::Font(juce::FontOptions("Calibri", 12.0f, juce::Font::plain)));
     beatStepperLabel.setColour(juce::Label::textColourId, NotebookLookAndFeel::getGraphiteColour());
     beatStepperLabel.setTooltip("Reference beats per bar (M). Standard is 4 for 4/4.");
     addAndMakeVisible(beatStepperLabel);
@@ -319,7 +319,7 @@ NotebookHeaderComponent::NotebookHeaderComponent(CompassCadenceAudioProcessor& p
 
     // Page Controls
     pageLabel.setText("Page 1 / 4", juce::dontSendNotification);
-    pageLabel.setFont(juce::Font(juce::FontOptions("Segoe UI", 12.0f, juce::Font::bold)));
+    pageLabel.setFont(juce::Font(juce::FontOptions("Calibri", 12.0f, juce::Font::bold)));
     pageLabel.setColour(juce::Label::textColourId, NotebookLookAndFeel::getGraphiteColour());
     pageLabel.setJustificationType(juce::Justification::centred);
     pageLabel.setTooltip("Active page / Total pages (automatable parameter in DAW).");
@@ -415,7 +415,7 @@ NotebookHeaderComponent::NotebookHeaderComponent(CompassCadenceAudioProcessor& p
     addChildComponent(decBpmBtn);
 
     bpmLabel.setText("120 BPM", juce::dontSendNotification);
-    bpmLabel.setFont(juce::Font(juce::FontOptions("Segoe UI", 11.5f, juce::Font::bold)));
+    bpmLabel.setFont(juce::Font(juce::FontOptions("Calibri", 11.5f, juce::Font::bold)));
     bpmLabel.setColour(juce::Label::textColourId, NotebookLookAndFeel::getGraphiteColour());
     bpmLabel.setJustificationType(juce::Justification::centred);
     bpmLabel.setTooltip("Standalone playback tempo in BPM.");
@@ -640,9 +640,13 @@ void NotebookHeaderComponent::showColorModeMenu()
     menu.addItem(1, "Rhymes (Phonetic Vowels)", true, curMode == RhymeClassifier::ColorMode::Rhymes);
     
     juce::PopupMenu repeatsMenu;
+    repeatsMenu.addItem(101, "1+ Syllables", true, curMode == RhymeClassifier::ColorMode::Repeats && minLen == 1);
     repeatsMenu.addItem(2, "2+ Syllables", true, curMode == RhymeClassifier::ColorMode::Repeats && minLen == 2);
     repeatsMenu.addItem(3, "3+ Syllables", true, curMode == RhymeClassifier::ColorMode::Repeats && minLen == 3);
     repeatsMenu.addItem(4, "4+ Syllables", true, curMode == RhymeClassifier::ColorMode::Repeats && minLen == 4);
+    repeatsMenu.addItem(105, "5+ Syllables", true, curMode == RhymeClassifier::ColorMode::Repeats && minLen == 5);
+    repeatsMenu.addItem(106, "6+ Syllables", true, curMode == RhymeClassifier::ColorMode::Repeats && minLen == 6);
+    repeatsMenu.addItem(10, "Custom Syllable Count (" + juce::String(minLen) + "+)...", true);
     repeatsMenu.addSeparator();
 
     juce::PopupMenu distMenu;
@@ -658,6 +662,8 @@ void NotebookHeaderComponent::showColorModeMenu()
     distMenu.addItem(29, "48 Lines", true, curDist == 48);
     distMenu.addItem(30, "64 Lines (Full Song)", true, curDist == 64);
     distMenu.addItem(31, "256 Lines (Unlimited / All)", true, curDist >= 256);
+    distMenu.addSeparator();
+    distMenu.addItem(50, "Custom Line Distance (" + juce::String(curDist) + " lines)...", true);
     repeatsMenu.addSubMenu("Max Line Distance (" + juce::String(curDist) + " lines)", distMenu, true);
 
     menu.addSubMenu("Repeats (Exact Matches)", repeatsMenu, true);
@@ -677,6 +683,11 @@ void NotebookHeaderComponent::showColorModeMenu()
         {
             document->setColorMode(RhymeClassifier::ColorMode::Rhymes);
         }
+        else if (result == 101)
+        {
+            document->setMinRepeatLength(1);
+            document->setColorMode(RhymeClassifier::ColorMode::Repeats);
+        }
         else if (result == 2)
         {
             document->setMinRepeatLength(2);
@@ -692,6 +703,38 @@ void NotebookHeaderComponent::showColorModeMenu()
             document->setMinRepeatLength(4);
             document->setColorMode(RhymeClassifier::ColorMode::Repeats);
         }
+        else if (result == 105)
+        {
+            document->setMinRepeatLength(5);
+            document->setColorMode(RhymeClassifier::ColorMode::Repeats);
+        }
+        else if (result == 106)
+        {
+            document->setMinRepeatLength(6);
+            document->setColorMode(RhymeClassifier::ColorMode::Repeats);
+        }
+        else if (result == 10)
+        {
+            auto* w = new juce::AlertWindow("Custom Repeat Syllables", "Enter minimum syllable count for repeat match detection (1 to 32):", juce::AlertWindow::QuestionIcon);
+            w->addTextEditor("syl", juce::String(document->getMinRepeatLength()), "Syllables:");
+            w->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
+            w->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+            w->enterModalState(true, juce::ModalCallbackFunction::create([this, w](int r) {
+                if (r == 1 && document != nullptr)
+                {
+                    int val = w->getTextEditorContents("syl").getIntValue();
+                    if (val >= 1)
+                    {
+                        document->setMinRepeatLength(val);
+                        document->setColorMode(RhymeClassifier::ColorMode::Repeats);
+                        updateRhymeButtonDisplay();
+                        document->refreshRhymes();
+                        document->notifyChanged();
+                    }
+                }
+            }), true);
+            return;
+        }
         else if (result >= 20 && result <= 31)
         {
             const int distValues[] = { 0, 1, 2, 4, 8, 12, 16, 24, 32, 48, 64, 256 };
@@ -701,6 +744,28 @@ void NotebookHeaderComponent::showColorModeMenu()
                 document->setMaxRepeatLineDistance(distValues[idx]);
                 document->setColorMode(RhymeClassifier::ColorMode::Repeats);
             }
+        }
+        else if (result == 50)
+        {
+            auto* w = new juce::AlertWindow("Custom Max Line Distance", "Enter maximum line distance for repetition matches (0 = same line, 1 = couplet, 24 = default baseline, up to 256):", juce::AlertWindow::QuestionIcon);
+            w->addTextEditor("dist", juce::String(document->getMaxRepeatLineDistance()), "Lines:");
+            w->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
+            w->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+            w->enterModalState(true, juce::ModalCallbackFunction::create([this, w](int r) {
+                if (r == 1 && document != nullptr)
+                {
+                    int val = w->getTextEditorContents("dist").getIntValue();
+                    if (val >= 0)
+                    {
+                        document->setMaxRepeatLineDistance(val);
+                        document->setColorMode(RhymeClassifier::ColorMode::Repeats);
+                        updateRhymeButtonDisplay();
+                        document->refreshRhymes();
+                        document->notifyChanged();
+                    }
+                }
+            }), true);
+            return;
         }
         else if (result == 5)
         {

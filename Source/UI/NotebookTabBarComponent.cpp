@@ -67,7 +67,7 @@ void NotebookTabBarComponent::resized()
     int tabY = 4;
     int tabH = getHeight() - tabY; // Flush with the bottom of this bar component
 
-    juce::Font font(juce::FontOptions("Segoe UI", 11.5f, juce::Font::bold));
+    juce::Font font(juce::FontOptions("Calibri", 11.5f, juce::Font::bold));
 
     int curX = startX;
     for (int i = 0; i < totalTabs; ++i)
@@ -155,7 +155,7 @@ void NotebookTabBarComponent::paint(juce::Graphics& g)
         juce::String title = processor.getTabName(layout.index);
         g.setColour(isActive ? NotebookLookAndFeel::getGraphiteColour()
                              : NotebookLookAndFeel::getLightGraphiteColour());
-        g.setFont(juce::Font(juce::FontOptions("Segoe UI", 11.5f, isActive ? juce::Font::bold : juce::Font::plain)));
+        g.setFont(juce::Font(juce::FontOptions("Calibri", 11.5f, isActive ? juce::Font::bold : juce::Font::plain)));
 
         int textMarginRight = (totalTabs > 1) ? 20 : 8;
         juce::Rectangle<int> textRect(layout.bounds.getX() + 8, layout.bounds.getY(),
@@ -176,7 +176,7 @@ void NotebookTabBarComponent::paint(juce::Graphics& g)
 
             g.setColour(closeHovered ? juce::Colour(0xFFDC2626)
                                      : NotebookLookAndFeel::getLightGraphiteColour());
-            g.setFont(juce::Font(juce::FontOptions("Segoe UI", 11.0f, juce::Font::bold)));
+            g.setFont(juce::Font(juce::FontOptions("Calibri", 11.0f, juce::Font::bold)));
             g.drawFittedText("x", layout.closeBounds, juce::Justification::centred, 1);
         }
     }

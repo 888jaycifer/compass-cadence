@@ -57,13 +57,13 @@ public:
                                                    const juce::String& prevSyllable = {},
                                                    const juce::String& nextSyllable = {});
 
-    // Minimum repeat length setting (2, 3, or 4 syllables)
+    // Minimum repeat length setting (1 to 32 syllables)
     int getMinRepeatLength() const noexcept { return minRepeatLength; }
-    void setMinRepeatLength(int len) noexcept { minRepeatLength = std::clamp(len, 2, 4); }
+    void setMinRepeatLength(int len) noexcept { minRepeatLength = std::clamp(len, 1, 32); }
 
     // Maximum repeat line distance setting (in lines/bars, default 24, 0 = same line only, 1 = couplet)
     int getMaxRepeatLineDistance() const noexcept { return maxRepeatLineDistance; }
-    void setMaxRepeatLineDistance(int dist) noexcept { maxRepeatLineDistance = std::clamp(dist, 0, 256); }
+    void setMaxRepeatLineDistance(int dist) noexcept { maxRepeatLineDistance = std::clamp(dist, 0, 512); }
 
     // Scans a collection of syllables and computes color assignments for recurring rhymes
     void updateRhymeMap(const std::vector<juce::String>& allSyllables);

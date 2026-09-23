@@ -32,7 +32,7 @@ KeyboardShortcutsDialog::KeyboardShortcutsDialog()
     addAndMakeVisible(resetBtn);
 
     statusLabel.setText("Default Layout Active", juce::dontSendNotification);
-    statusLabel.setFont(juce::Font(juce::FontOptions("Segoe UI", 11.0f, juce::Font::italic)));
+    statusLabel.setFont(juce::Font(juce::FontOptions("Calibri", 11.0f, juce::Font::italic)));
     statusLabel.setColour(juce::Label::textColourId, NotebookLookAndFeel::getLightGraphiteColour());
     statusLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(statusLabel);
@@ -107,7 +107,7 @@ void KeyboardShortcutsDialog::paint(juce::Graphics& g)
 
     // Title
     g.setColour(NotebookLookAndFeel::getGraphiteColour());
-    g.setFont(juce::Font(juce::FontOptions("Segoe UI", 16.0f, juce::Font::bold)));
+    g.setFont(juce::Font(juce::FontOptions("Calibri", 16.0f, juce::Font::bold)));
     g.drawText("Keyboard Shortcuts & Meter Controls", 18, 10, 360, 26, juce::Justification::centredLeft);
 }
 
@@ -161,7 +161,7 @@ void KeyboardShortcutsDialog::resized()
                 g.setColour(dimCol.withAlpha(0.15f));
                 g.fillRoundedRectangle(4.0f, (float)y + 3.0f, 68.0f, (float)rH - 6.0f, 3.0f);
                 g.setColour(dimCol);
-                g.setFont(juce::Font(juce::FontOptions("Segoe UI", 10.5f, juce::Font::bold)));
+                g.setFont(juce::Font(juce::FontOptions("Calibri", 10.5f, juce::Font::bold)));
                 g.drawText(item.category, 6, y, 64, rH, juce::Justification::centred);
 
                 // Shortcut keys badge
@@ -171,12 +171,12 @@ void KeyboardShortcutsDialog::resized()
 
                 // Action description
                 g.setColour(textCol);
-                g.setFont(juce::Font(juce::FontOptions("Segoe UI", 12.0f, juce::Font::plain)));
+                g.setFont(juce::Font(juce::FontOptions("Calibri", 12.0f, juce::Font::plain)));
                 g.drawText(item.action, 250, y, 240, rH, juce::Justification::centredLeft);
 
                 // Notes / details
                 g.setColour(dimCol);
-                g.setFont(juce::Font(juce::FontOptions("Segoe UI", 11.0f, juce::Font::italic)));
+                g.setFont(juce::Font(juce::FontOptions("Calibri", 11.0f, juce::Font::italic)));
                 g.drawText(item.notes, 495, y, getWidth() - 500, rH, juce::Justification::centredLeft);
 
                 y += rH;

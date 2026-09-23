@@ -41,9 +41,7 @@ private:
     std::vector<RowItem> rows;
 
     juce::Label repeatLabel { {}, "Repeats Minimum Syllables:" };
-    juce::TextButton repeat2Btn { "2+ Syllables" };
-    juce::TextButton repeat3Btn { "3+ Syllables" };
-    juce::TextButton repeat4Btn { "4+ Syllables" };
+    juce::Slider repeatSlider;
 
     juce::Label repeatDistLabel { {}, "Repeats Max Line Distance:" };
     juce::Slider repeatDistSlider;

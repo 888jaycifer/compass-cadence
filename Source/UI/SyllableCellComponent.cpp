@@ -29,7 +29,7 @@ public:
 
     void updateEditorFont(bool isBold)
     {
-        setFont(juce::Font(juce::FontOptions("Segoe UI", 14.0f, isBold ? juce::Font::bold : juce::Font::plain)));
+        setFont(juce::Font(juce::FontOptions("Calibri", 14.0f, isBold ? juce::Font::bold : juce::Font::plain)));
     }
 
     bool keyPressed(const juce::KeyPress& key) override
@@ -269,7 +269,7 @@ public:
             g.setColour(juce::Colour(0xFFD97706));
             g.drawRoundedRectangle(b, 2.0f, 1.0f);
         }
-        g.setFont(juce::Font(juce::FontOptions("Segoe UI", 11.0f, juce::Font::bold)));
+        g.setFont(juce::Font(juce::FontOptions("Calibri", 11.0f, juce::Font::bold)));
         g.drawText("+", getLocalBounds(), juce::Justification::centred, false);
     }
 };
@@ -301,7 +301,7 @@ public:
             g.setColour(juce::Colour(0xFFEF4444));
             g.drawRoundedRectangle(b, 2.0f, 1.0f);
         }
-        g.setFont(juce::Font(juce::FontOptions("Segoe UI", 11.0f, juce::Font::bold)));
+        g.setFont(juce::Font(juce::FontOptions("Calibri", 11.0f, juce::Font::bold)));
         g.drawText("-", getLocalBounds(), juce::Justification::centred, false);
     }
 };
@@ -1586,7 +1586,7 @@ void SyllableCellComponent::paint(juce::Graphics& g)
         if (currentText.isNotEmpty())
         {
             g.setColour(NotebookLookAndFeel::getGraphiteColour());
-            g.setFont(juce::Font(juce::FontOptions("Segoe UI", 14.0f, isBold() ? juce::Font::bold : juce::Font::plain)));
+            g.setFont(juce::Font(juce::FontOptions("Calibri", 14.0f, isBold() ? juce::Font::bold : juce::Font::plain)));
 
             juce::Justification just = juce::Justification::centred;
             auto align = document.getCellAlignment(barIndex, globalSyllableIndex);

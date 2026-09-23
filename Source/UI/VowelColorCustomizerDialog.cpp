@@ -97,12 +97,12 @@ public:
 
             // Label
             g.setColour(dark ? juce::Colour(0xFFF1F5F9) : juce::Colour(0xFF1E293B));
-            g.setFont(juce::Font(juce::FontOptions("Segoe UI", 14.0f, juce::Font::bold)));
+            g.setFont(juce::Font(juce::FontOptions("Calibri", 14.0f, juce::Font::bold)));
             g.drawText(r.label, 12, y, 110, rowH, juce::Justification::centredLeft);
 
             // Examples
             g.setColour(dark ? juce::Colour(0xFF94A3B8) : juce::Colour(0xFF64748B));
-            g.setFont(juce::Font(juce::FontOptions("Segoe UI", 13.0f, juce::Font::italic)));
+            g.setFont(juce::Font(juce::FontOptions("Calibri", 13.0f, juce::Font::italic)));
             g.drawText("(" + r.examples + ")", 126, y, getWidth() - 126 - 72, rowH, juce::Justification::centredLeft);
 
             y += rowH;
@@ -149,44 +149,30 @@ VowelColorCustomizerDialog::VowelColorCustomizerDialog(LyricDocument& doc)
     viewport.setScrollBarThickness(10);
     addAndMakeVisible(viewport);
 
-    repeatLabel.setFont(juce::Font(juce::FontOptions("Segoe UI", 13.0f, juce::Font::bold)));
+    repeatLabel.setFont(juce::Font(juce::FontOptions("Calibri", 13.0f, juce::Font::bold)));
     repeatLabel.setColour(juce::Label::textColourId, NotebookLookAndFeel::getGraphiteColour());
+    repeatLabel.setTooltip("Minimum syllable count for repetition match (1 to 32 syllables). Type any custom number or drag.");
     addAndMakeVisible(repeatLabel);
 
-    repeat2Btn.setClickingTogglesState(false);
-    repeat2Btn.setTooltip("Detect and highlight exact matches of 2 or more syllables.");
-    repeat2Btn.onClick = [this] {
-        document.setMinRepeatLength(2);
-        updateRepeatButtons();
+    repeatSlider.setSliderStyle(juce::Slider::LinearHorizontal);
+    repeatSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 72, 22);
+    repeatSlider.setRange(1.0, 32.0, 1.0);
+    repeatSlider.setTextValueSuffix(" syl");
+    repeatSlider.setValue(document.getMinRepeatLength(), juce::dontSendNotification);
+    repeatSlider.setTooltip("Minimum syllable count for repeated sequence detection. Allows any custom number (1..32).");
+    repeatSlider.onValueChange = [this] {
+        document.setMinRepeatLength((int)repeatSlider.getValue());
     };
-    addAndMakeVisible(repeat2Btn);
+    addAndMakeVisible(repeatSlider);
 
-    repeat3Btn.setClickingTogglesState(false);
-    repeat3Btn.setTooltip("Detect and highlight exact matches of 3 or more syllables.");
-    repeat3Btn.onClick = [this] {
-        document.setMinRepeatLength(3);
-        updateRepeatButtons();
-    };
-    addAndMakeVisible(repeat3Btn);
-
-    repeat4Btn.setClickingTogglesState(false);
-    repeat4Btn.setTooltip("Detect and highlight exact matches of 4 or more syllables.");
-    repeat4Btn.onClick = [this] {
-        document.setMinRepeatLength(4);
-        updateRepeatButtons();
-    };
-    addAndMakeVisible(repeat4Btn);
-
-    updateRepeatButtons();
-
-    repeatDistLabel.setFont(juce::Font(juce::FontOptions("Segoe UI", 13.0f, juce::Font::bold)));
+    repeatDistLabel.setFont(juce::Font(juce::FontOptions("Calibri", 13.0f, juce::Font::bold)));
     repeatDistLabel.setColour(juce::Label::textColourId, NotebookLookAndFeel::getGraphiteColour());
-    repeatDistLabel.setTooltip("Maximum lines apart for a repeated sequence match (0 = same line, 1 = couplet, 24 = default).");
+    repeatDistLabel.setTooltip("Maximum lines apart for a repeated sequence match (0 = same line, 1 = couplet, 24 = default baseline, up to 256).");
     addAndMakeVisible(repeatDistLabel);
 
     repeatDistSlider.setSliderStyle(juce::Slider::LinearHorizontal);
     repeatDistSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 72, 22);
-    repeatDistSlider.setRange(0.0, 64.0, 1.0);
+    repeatDistSlider.setRange(0.0, 256.0, 1.0);
     repeatDistSlider.setTextValueSuffix(" lines");
     repeatDistSlider.setValue(document.getMaxRepeatLineDistance(), juce::dontSendNotification);
     repeatDistSlider.setTooltip("Maximum distance in lines/bars between repeated sequences. 0 = same line only, 1 = couplets, 24 = default baseline.");
@@ -221,14 +207,6 @@ VowelColorCustomizerDialog::~VowelColorCustomizerDialog()
     viewport.setViewedComponent(nullptr, false);
 }
 
-void VowelColorCustomizerDialog::updateRepeatButtons()
-{
-    int minLen = document.getMinRepeatLength();
-    repeat2Btn.setToggleState(minLen == 2, juce::dontSendNotification);
-    repeat3Btn.setToggleState(minLen == 3, juce::dontSendNotification);
-    repeat4Btn.setToggleState(minLen == 4, juce::dontSendNotification);
-}
-
 void VowelColorCustomizerDialog::openColorPicker(const juce::String& vowelKey, juce::Button* targetButton)
 {
     juce::Colour curCol = document.getVowelSoundColor(vowelKey);
@@ -258,11 +236,11 @@ void VowelColorCustomizerDialog::paint(juce::Graphics& g)
 
     // Title header
     g.setColour(dark ? juce::Colour(0xFFF1F5F9) : juce::Colour(0xFF1E293B));
-    g.setFont(juce::Font(juce::FontOptions("Segoe UI", 16.0f, juce::Font::bold)));
+    g.setFont(juce::Font(juce::FontOptions("Calibri", 16.0f, juce::Font::bold)));
     g.drawText("Customize Color Palette & Repetition Rules", 18, 12, getWidth() - 60, 22, juce::Justification::centredLeft);
 
     g.setColour(dark ? juce::Colour(0xFF94A3B8) : juce::Colour(0xFF64748B));
-    g.setFont(juce::Font(juce::FontOptions("Segoe UI", 12.0f, juce::Font::plain)));
+    g.setFont(juce::Font(juce::FontOptions("Calibri", 12.0f, juce::Font::plain)));
     g.drawText("Click any color swatch to customize vowel sounds, or adjust match rules", 18, 34, getWidth() - 60, 18, juce::Justification::centredLeft);
 
     // Subtle rule line below header & repeat controls
@@ -282,10 +260,7 @@ void VowelColorCustomizerDialog::resized()
     closeBtn.setBounds(getWidth() - 36, 12, 24, 24);
 
     repeatLabel.setBounds(18, 58, 180, 26);
-    int rBtnW = 90, rBtnH = 26;
-    repeat2Btn.setBounds(202, 58, rBtnW, rBtnH);
-    repeat3Btn.setBounds(202 + rBtnW + 4, 58, rBtnW, rBtnH);
-    repeat4Btn.setBounds(202 + (rBtnW + 4) * 2, 58, rBtnW, rBtnH);
+    repeatSlider.setBounds(202, 58, getWidth() - 202 - 18, 26);
 
     repeatDistLabel.setBounds(18, 90, 180, 26);
     repeatDistSlider.setBounds(202, 90, getWidth() - 202 - 18, 26);

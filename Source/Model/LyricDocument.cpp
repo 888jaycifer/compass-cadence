@@ -1522,7 +1522,7 @@ void LyricDocument::refreshRhymes()
 
 void LyricDocument::setMinRepeatLength(int len)
 {
-    int clamped = std::clamp(len, 2, 4);
+    int clamped = std::clamp(len, 1, 32);
     if (rhymeClassifier.getMinRepeatLength() != clamped)
     {
         pushUndoSnapshot();
@@ -1534,7 +1534,7 @@ void LyricDocument::setMinRepeatLength(int len)
 
 void LyricDocument::setMaxRepeatLineDistance(int dist)
 {
-    int clamped = std::clamp(dist, 0, 256);
+    int clamped = std::clamp(dist, 0, 512);
     if (rhymeClassifier.getMaxRepeatLineDistance() != clamped)
     {
         pushUndoSnapshot();
@@ -2180,15 +2180,15 @@ juce::String LyricDocument::exportHtmlTable(const juce::String& title) const
     html += "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n";
     html += "<title>" + title + "</title>\n";
     html += "<style>\n";
-    html += "  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background-color: #FAF8F2; color: #262626; margin: 40px auto; max-width: 900px; padding: 0 20px; }\n";
+    html += "  body { font-family: Calibri, 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #FAF8F2; color: #262626; margin: 40px auto; max-width: 900px; padding: 0 20px; }\n";
     html += "  h1 { font-size: 24px; border-bottom: 2px solid #EF5350; padding-bottom: 8px; margin-bottom: 24px; color: #1E293B; }\n";
     html += "  table { width: 100%; border-collapse: collapse; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border-radius: 6px; overflow: hidden; }\n";
     html += "  th { background: #F1EFE9; color: #475569; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 14px; text-align: left; border-bottom: 2px solid #E2E8F0; }\n";
     html += "  td { padding: 9px 14px; font-size: 14px; border-bottom: 1px solid #E2E8F0; vertical-align: middle; }\n";
     html += "  tr.stanza-break td { border-bottom: 3px double #94A3B8; background-color: #FAF9F5; }\n";
-    html += "  .bar-num { color: #94A3B8; font-family: Consolas, monospace; font-size: 12px; width: 45px; text-align: center; }\n";
-    html += "  .schema { color: #64748B; font-family: Consolas, monospace; font-size: 12px; width: 120px; }\n";
-    html += "  .count { width: 60px; text-align: center; font-weight: bold; font-family: Consolas, monospace; color: #B45309; background: #FEF3C7; border-radius: 4px; padding: 2px 6px; }\n";
+    html += "  .bar-num { color: #94A3B8; font-family: Calibri, Consolas, monospace; font-size: 12px; width: 45px; text-align: center; }\n";
+    html += "  .schema { color: #64748B; font-family: Calibri, Consolas, monospace; font-size: 12px; width: 120px; }\n";
+    html += "  .count { width: 60px; text-align: center; font-weight: bold; font-family: Calibri, Consolas, monospace; color: #B45309; background: #FEF3C7; border-radius: 4px; padding: 2px 6px; }\n";
     html += "  .lyrics { font-weight: 500; font-size: 15px; }\n";
     html += "  @media print { body { background: white; margin: 0; padding: 0; } table { box-shadow: none; } }\n";
     html += "</style>\n</head>\n<body>\n";

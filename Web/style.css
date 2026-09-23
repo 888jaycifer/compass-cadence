@@ -67,7 +67,7 @@ html, body {
   overflow: hidden;
   background: var(--bg-app);
   color: var(--graphite);
-  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+  font-family: Calibri, "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 #app-window {
@@ -145,7 +145,7 @@ button.vst-btn {
   border: 1px solid var(--btn-border);
   border-radius: 3px;
   color: var(--graphite);
-  font-family: "Segoe UI", sans-serif;
+  font-family: Calibri, "Segoe UI", sans-serif;
   font-size: 12px;
   font-weight: 600;
   padding: 4px 10px;
@@ -371,7 +371,7 @@ button.vst-btn.toggled {
 /* Line Number (Orange Two-Digit Label: 01, 02... 20) */
 .bar-num-text {
   font-size: 12px;
-  font-family: "Segoe UI", sans-serif;
+  font-family: Calibri, "Segoe UI", sans-serif;
   font-weight: 700;
   color: var(--copper-accent);
   width: 26px;
@@ -463,7 +463,7 @@ button.vst-btn.toggled {
   align-items: center;
   padding: 0 3px;
   font-size: 13.5px;
-  font-family: "Segoe UI", sans-serif;
+  font-family: Calibri, "Segoe UI", sans-serif;
   font-weight: 500;
   color: var(--cell-text);
   white-space: nowrap;
@@ -507,7 +507,7 @@ input.cell-active-input {
   border: none;
   outline: none;
   font-size: 13.5px;
-  font-family: "Segoe UI", sans-serif;
+  font-family: Calibri, "Segoe UI", sans-serif;
   font-weight: 500;
   color: var(--cell-text);
   padding: 0 3px;

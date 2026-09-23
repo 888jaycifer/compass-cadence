@@ -2267,18 +2267,19 @@
             <button class="vst-btn" id="vowel-palette-close-btn" style="font-size:16px;line-height:1;padding:2px 8px;">&times;</button>
           </div>
           <div class="vowel-palette-repeats-row" style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--notebook-rule);">
-            <span style="font-weight:600;font-size:13px;color:var(--text-main);">Repeats Minimum Syllables:</span>
-            <div style="display:flex;gap:4px;">
-              <button class="vst-btn ${this.minRepeatLength === 2 ? 'toggled' : ''}" id="vowel-rep-2" style="font-size:11px;padding:3px 8px;">2+ Syllables</button>
-              <button class="vst-btn ${this.minRepeatLength === 3 ? 'toggled' : ''}" id="vowel-rep-3" style="font-size:11px;padding:3px 8px;">3+ Syllables</button>
-              <button class="vst-btn ${this.minRepeatLength === 4 ? 'toggled' : ''}" id="vowel-rep-4" style="font-size:11px;padding:3px 8px;">4+ Syllables</button>
+            <span style="font-weight:600;font-size:13px;color:var(--text-main);" title="Minimum syllable count for repeated sequence detection (1 to 32).">Repeats Minimum Syllables:</span>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <input type="range" id="vowel-rep-syl-slider" min="1" max="32" value="${this.minRepeatLength}" style="width:110px;cursor:pointer;">
+              <input type="number" id="vowel-rep-syl-input" min="1" max="32" value="${this.minRepeatLength}" style="width:48px;height:24px;font-size:12px;font-weight:600;text-align:center;border:1px solid var(--btn-border);border-radius:3px;background:var(--btn-bg);color:var(--graphite);">
+              <span id="vowel-rep-syl-label" style="font-size:12px;font-weight:600;width:35px;color:var(--text-main);">syl</span>
             </div>
           </div>
           <div class="vowel-palette-distance-row" style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--notebook-rule);margin-bottom:8px;">
-            <span style="font-weight:600;font-size:13px;color:var(--text-main);" title="Maximum lines apart for a repeated sequence match. 0 = same line only, 1 = couplet, 24 = default baseline.">Repeats Max Line Distance:</span>
+            <span style="font-weight:600;font-size:13px;color:var(--text-main);" title="Maximum lines apart for a repeated sequence match. 0 = same line only, 1 = couplet, 24 = default baseline, up to 256.">Repeats Max Line Distance:</span>
             <div style="display:flex;align-items:center;gap:6px;">
-              <input type="range" id="vowel-rep-dist-slider" min="0" max="64" value="${this.maxRepeatLineDistance}" style="width:120px;cursor:pointer;">
-              <span id="vowel-rep-dist-label" style="font-size:12px;font-weight:600;width:75px;text-align:right;color:var(--text-main);">${this.maxRepeatLineDistance === 0 ? '0 (Same)' : this.maxRepeatLineDistance === 1 ? '1 (Couplet)' : this.maxRepeatLineDistance + ' Lines'}</span>
+              <input type="range" id="vowel-rep-dist-slider" min="0" max="256" value="${this.maxRepeatLineDistance}" style="width:110px;cursor:pointer;">
+              <input type="number" id="vowel-rep-dist-input" min="0" max="256" value="${this.maxRepeatLineDistance}" style="width:48px;height:24px;font-size:12px;font-weight:600;text-align:center;border:1px solid var(--btn-border);border-radius:3px;background:var(--btn-bg);color:var(--graphite);">
+              <span id="vowel-rep-dist-label" style="font-size:12px;font-weight:600;width:35px;color:var(--text-main);">lines</span>
             </div>
           </div>
           <div class="modal-body" id="vowel-palette-body"></div>
@@ -2289,35 +2290,34 @@
         </div>
       `;
 
-      const setupRepeatBtns = () => {
-        [2, 3, 4].forEach((len) => {
-          const btn = document.getElementById(`vowel-rep-${len}`);
-          if (btn) {
-            btn.onclick = () => {
-              this.minRepeatLength = len;
-              [2, 3, 4].forEach(l => {
-                const b = document.getElementById(`vowel-rep-${l}`);
-                if (b) b.classList.toggle('toggled', l === len);
-              });
-              this.updateColorModeButton();
-              this.renderPage();
-            };
-          }
-        });
+      const setupRepeatInputs = () => {
+        const sylSlider = document.getElementById('vowel-rep-syl-slider');
+        const sylInput = document.getElementById('vowel-rep-syl-input');
+        const setSyl = (val) => {
+          val = Math.max(1, Math.min(32, parseInt(val, 10) || 1));
+          this.minRepeatLength = val;
+          if (sylSlider) sylSlider.value = val;
+          if (sylInput) sylInput.value = val;
+          this.updateColorModeButton();
+          this.renderPage();
+        };
+        if (sylSlider) sylSlider.oninput = (e) => setSyl(e.target.value);
+        if (sylInput) sylInput.onchange = (e) => setSyl(e.target.value);
 
         const distSlider = document.getElementById('vowel-rep-dist-slider');
-        const distLabel = document.getElementById('vowel-rep-dist-label');
-        if (distSlider && distLabel) {
-          distSlider.oninput = (e) => {
-            const val = parseInt(e.target.value, 10);
-            this.maxRepeatLineDistance = val;
-            localStorage.setItem('cc_max_repeat_line_dist', val.toString());
-            distLabel.textContent = val === 0 ? '0 (Same)' : val === 1 ? '1 (Couplet)' : `${val} Lines`;
-            this.renderPage();
-          };
-        }
+        const distInput = document.getElementById('vowel-rep-dist-input');
+        const setDist = (val) => {
+          val = Math.max(0, Math.min(512, parseInt(val, 10) || 0));
+          this.maxRepeatLineDistance = val;
+          localStorage.setItem('cc_max_repeat_line_dist', val.toString());
+          if (distSlider) distSlider.value = val;
+          if (distInput) distInput.value = val;
+          this.renderPage();
+        };
+        if (distSlider) distSlider.oninput = (e) => setDist(e.target.value);
+        if (distInput) distInput.onchange = (e) => setDist(e.target.value);
       };
-      setupRepeatBtns();
+      setupRepeatInputs();
 
       renderBody();
 
@@ -2492,7 +2492,10 @@
           <div class="popup-menu-item ${this.colorMode === 'repeats' ? 'active-item' : ''}">
             ${this.colorMode === 'repeats' ? '✓ ' : '&nbsp;&nbsp;'}Repeats (Exact Matches) ▶
           </div>
-          <div class="popup-submenu" style="width: 170px;">
+          <div class="popup-submenu" style="width: 200px;">
+            <div class="popup-menu-item ${this.colorMode === 'repeats' && this.minRepeatLength === 1 ? 'active-item' : ''}" id="cm-rep-1">
+              ${this.colorMode === 'repeats' && this.minRepeatLength === 1 ? '✓ ' : '&nbsp;&nbsp;'}1+ Syllables
+            </div>
             <div class="popup-menu-item ${this.colorMode === 'repeats' && this.minRepeatLength === 2 ? 'active-item' : ''}" id="cm-rep-2">
               ${this.colorMode === 'repeats' && this.minRepeatLength === 2 ? '✓ ' : '&nbsp;&nbsp;'}2+ Syllables
             </div>
@@ -2502,12 +2505,21 @@
             <div class="popup-menu-item ${this.colorMode === 'repeats' && this.minRepeatLength === 4 ? 'active-item' : ''}" id="cm-rep-4">
               ${this.colorMode === 'repeats' && this.minRepeatLength === 4 ? '✓ ' : '&nbsp;&nbsp;'}4+ Syllables
             </div>
+            <div class="popup-menu-item ${this.colorMode === 'repeats' && this.minRepeatLength === 5 ? 'active-item' : ''}" id="cm-rep-5">
+              ${this.colorMode === 'repeats' && this.minRepeatLength === 5 ? '✓ ' : '&nbsp;&nbsp;'}5+ Syllables
+            </div>
+            <div class="popup-menu-item ${this.colorMode === 'repeats' && this.minRepeatLength === 6 ? 'active-item' : ''}" id="cm-rep-6">
+              ${this.colorMode === 'repeats' && this.minRepeatLength === 6 ? '✓ ' : '&nbsp;&nbsp;'}6+ Syllables
+            </div>
+            <div class="popup-menu-item" id="cm-rep-custom">
+              &nbsp;&nbsp;Custom Syllable Count (${this.minRepeatLength}+)...
+            </div>
             <div class="popup-menu-separator"></div>
             <div class="popup-submenu-container">
               <div class="popup-menu-item">
                 Max Distance (${this.maxRepeatLineDistance}L) ▶
               </div>
-              <div class="popup-submenu" style="width: 170px;">
+              <div class="popup-submenu" style="width: 210px;">
                 ${[
                   { d: 0, l: '0 Lines (Same Line)' },
                   { d: 1, l: '1 Line (Couplets)' },
@@ -2526,6 +2538,10 @@
                     ${this.maxRepeatLineDistance === opt.d ? '✓ ' : '&nbsp;&nbsp;'}${opt.l}
                   </div>
                 `).join('')}
+                <div class="popup-menu-separator"></div>
+                <div class="popup-menu-item" id="cm-dist-custom">
+                  &nbsp;&nbsp;Custom Line Distance (${this.maxRepeatLineDistance} lines)...
+                </div>
               </div>
             </div>
           </div>
@@ -2560,17 +2576,44 @@
 
       const rhymesEl = document.getElementById('cm-rhymes');
       if (rhymesEl) rhymesEl.onclick = () => selectMode('rhymes');
-      const rep2El = document.getElementById('cm-rep-2');
-      if (rep2El) rep2El.onclick = () => selectMode('repeats', 2);
-      const rep3El = document.getElementById('cm-rep-3');
-      if (rep3El) rep3El.onclick = () => selectMode('repeats', 3);
-      const rep4El = document.getElementById('cm-rep-4');
-      if (rep4El) rep4El.onclick = () => selectMode('repeats', 4);
+
+      [1, 2, 3, 4, 5, 6].forEach(len => {
+        const el = document.getElementById(`cm-rep-${len}`);
+        if (el) el.onclick = () => selectMode('repeats', len);
+      });
+
+      const repCustomEl = document.getElementById('cm-rep-custom');
+      if (repCustomEl) {
+        repCustomEl.onclick = () => {
+          this.contextMenu.style.display = 'none';
+          const input = prompt('Enter minimum syllable count for repetition match detection (1 to 32):', this.minRepeatLength);
+          if (input !== null) {
+            const val = parseInt(input.trim(), 10);
+            if (!isNaN(val) && val >= 1) {
+              selectMode('repeats', Math.min(32, val));
+            }
+          }
+        };
+      }
 
       [0, 1, 2, 4, 8, 12, 16, 24, 32, 48, 64, 256].forEach(d => {
         const el = document.getElementById(`cm-dist-${d}`);
         if (el) el.onclick = () => selectMode('repeats', null, d);
       });
+
+      const distCustomEl = document.getElementById('cm-dist-custom');
+      if (distCustomEl) {
+        distCustomEl.onclick = () => {
+          this.contextMenu.style.display = 'none';
+          const input = prompt('Enter maximum line distance for repetition matches (0 = same line, 1 = couplet, 24 = default, up to 256):', this.maxRepeatLineDistance);
+          if (input !== null) {
+            const val = parseInt(input.trim(), 10);
+            if (!isNaN(val) && val >= 0) {
+              selectMode('repeats', null, Math.min(512, val));
+            }
+          }
+        };
+      }
 
       const offEl = document.getElementById('cm-off');
       if (offEl) offEl.onclick = () => selectMode('off');

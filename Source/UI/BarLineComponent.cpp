@@ -248,12 +248,12 @@ void BarLineComponent::paint(juce::Graphics& g)
     {
         // High-contrast deep copper marker when active
         g.setColour(juce::Colour(0xFFB45309));
-        g.setFont(juce::Font(juce::FontOptions("Segoe UI", 12.0f, juce::Font::bold)));
+        g.setFont(juce::Font(juce::FontOptions("Calibri", 12.0f, juce::Font::bold)));
     }
     else
     {
         g.setColour(NotebookLookAndFeel::getLightGraphiteColour());
-        g.setFont(juce::Font(juce::FontOptions("Segoe UI", 11.0f, juce::Font::plain)));
+        g.setFont(juce::Font(juce::FontOptions("Calibri", 11.0f, juce::Font::plain)));
     }
 
     g.drawFittedText(barNumStr, gutterBounds.toNearestInt(), juce::Justification::centredRight, 1);

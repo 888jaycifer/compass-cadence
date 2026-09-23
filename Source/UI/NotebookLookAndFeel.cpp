@@ -234,7 +234,7 @@ void NotebookLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Recta
 
         r.reduce(std::min(6, area.getWidth() / 20), 0);
 
-        auto font = juce::Font(juce::FontOptions("Segoe UI", 13.5f, juce::Font::plain));
+        auto font = juce::Font(juce::FontOptions("Calibri", 13.5f, juce::Font::plain));
         float maxFontHeight = (float)r.getHeight() / 1.3f;
         if (font.getHeight() > maxFontHeight)
             font.setHeight(maxFontHeight);
@@ -285,7 +285,7 @@ void NotebookLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Recta
 
 juce::Font NotebookLookAndFeel::getTextButtonFont(juce::TextButton&, int buttonHeight)
 {
-    return juce::Font(juce::FontOptions("Segoe UI", (float)buttonHeight * 0.5f, juce::Font::bold));
+    return juce::Font(juce::FontOptions("Calibri", (float)buttonHeight * 0.5f, juce::Font::bold));
 }
 
 void NotebookLookAndFeel::drawSpiralRings(juce::Graphics& g, float startY, float endY,
