@@ -74,7 +74,7 @@ BarLineComponent::BarLineComponent(LyricDocument& doc, int bar, float marginLine
     addChildComponent(addLineBtn);
     addLineBtn.setVisible(false);
 
-    addMouseListener(this, true);
+    setPaintingIsUnclipped(true);
 
     rebuildPulses();
 }
@@ -162,6 +162,7 @@ void BarLineComponent::rebuildPulses()
 
     updateMetricLabel();
     updateSyllableCounter();
+    addLineBtn.toFront(false);
     if (!isMouseOver(true))
         addLineBtn.setVisible(false);
     resized();
@@ -212,7 +213,6 @@ void BarLineComponent::focusSyllable(int globalSyllableIndex)
 void BarLineComponent::mouseEnter(const juce::MouseEvent&)
 {
     addLineBtn.setVisible(true);
-    addLineBtn.toFront(false);
 }
 
 void BarLineComponent::mouseMove(const juce::MouseEvent&)
@@ -220,7 +220,6 @@ void BarLineComponent::mouseMove(const juce::MouseEvent&)
     if (!addLineBtn.isVisible())
     {
         addLineBtn.setVisible(true);
-        addLineBtn.toFront(false);
     }
 }
 
@@ -305,7 +304,7 @@ void BarLineComponent::resized()
 
     int metricX = (int)marginX + 6;
     int metricW = 96;
-    int h = bounds.getHeight() - 6;
+    int h = bounds.getHeight() - 16;
     int y = 3;
 
     metricLabel.setBounds(metricX, y + 1, metricW, h - 2);
@@ -411,6 +410,21 @@ void BarLineComponent::onSyllableEnterNextBar(int barIdx)
 {
     if (navListener != nullptr)
         navListener->onBarEnterNext(barIdx);
+}
+
+bool BarLineComponent::hitTest(int x, int y)
+{
+    if (juce::Component::hitTest(x, y))
+        return true;
+    for (auto& p : pulseGroups)
+    {
+        if (p != nullptr && p->isVisible())
+        {
+            if (p->hitTest(x - p->getX(), y - p->getY()))
+                return true;
+        }
+    }
+    return false;
 }
 
 } // namespace CompassCadence

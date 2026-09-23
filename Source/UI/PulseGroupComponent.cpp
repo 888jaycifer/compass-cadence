@@ -16,6 +16,8 @@ PulseGroupComponent::PulseGroupComponent(LyricDocument& doc, int bar, int pulse,
         addAndMakeVisible(cell.get());
         cells.push_back(std::move(cell));
     }
+
+    setPaintingIsUnclipped(true);
 }
 
 PulseGroupComponent::~PulseGroupComponent()
@@ -85,6 +87,21 @@ void PulseGroupComponent::resized()
         cells[i]->setBounds(x, bounds.getY(), w, bounds.getHeight());
         x += w;
     }
+}
+
+bool PulseGroupComponent::hitTest(int x, int y)
+{
+    if (juce::Component::hitTest(x, y))
+        return true;
+    for (auto& c : cells)
+    {
+        if (c != nullptr && c->isVisible())
+        {
+            if (c->hitTest(x - c->getX(), y - c->getY()))
+                return true;
+        }
+    }
+    return false;
 }
 
 void PulseGroupComponent::onCellAdvance(int barIdx, int globalSylIdx, bool forward)

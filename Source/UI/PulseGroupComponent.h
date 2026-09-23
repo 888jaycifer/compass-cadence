@@ -36,6 +36,7 @@ public:
 
     void paint(juce::Graphics& g) override;
     void resized() override;
+    bool hitTest(int x, int y) override;
 
     // SyllableCellComponent::NavigationListener
     void onCellAdvance(int barIdx, int globalSylIdx, bool forward) override;

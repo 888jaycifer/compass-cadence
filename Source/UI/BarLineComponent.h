@@ -47,6 +47,7 @@ public:
     void mouseEnter(const juce::MouseEvent& e) override;
     void mouseExit(const juce::MouseEvent& e) override;
     void mouseMove(const juce::MouseEvent& e) override;
+    bool hitTest(int x, int y) override;
 
     // juce::Label::Listener
     void labelTextChanged(juce::Label* labelThatHasChanged) override;

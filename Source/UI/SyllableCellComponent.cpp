@@ -274,9 +274,19 @@ public:
     void paintButton(juce::Graphics& g, bool isOver, bool) override
     {
         auto b = getLocalBounds().toFloat().reduced(0.5f);
-        g.setColour(isOver ? juce::Colour(0xFFEF4444) : juce::Colour(0x35EF4444));
-        g.fillRoundedRectangle(b, 2.0f);
-        g.setColour(isOver ? juce::Colours::white : juce::Colour(0xFFEF4444));
+        if (isOver)
+        {
+            g.setColour(juce::Colour(0xFFEF4444));
+            g.fillRoundedRectangle(b, 2.0f);
+            g.setColour(juce::Colours::white);
+        }
+        else
+        {
+            g.setColour(juce::Colour(0x20EF4444));
+            g.fillRoundedRectangle(b, 2.0f);
+            g.setColour(juce::Colour(0xFFEF4444));
+            g.drawRoundedRectangle(b, 2.0f, 1.0f);
+        }
         g.setFont(juce::Font(juce::FontOptions("Segoe UI", 11.0f, juce::Font::bold)));
         g.drawText("-", getLocalBounds(), juce::Justification::centred, false);
     }
@@ -582,9 +592,7 @@ SyllableCellComponent::SyllableCellComponent(LyricDocument& doc, int bar, int pu
         document.deleteSyllableInBar(barIndex, globalSyllableIndex);
     };
     addChildComponent(removeSyllableBtn.get());
-    removeSyllableBtn->setVisible(false);
-
-    addMouseListener(this, true);
+    setPaintingIsUnclipped(true);
 
     updateContent();
 }
@@ -638,9 +646,9 @@ void SyllableCellComponent::updateContent()
     if (showAlign)
     {
         updateAlignButtonStates();
-        if (alignLeftBtn != nullptr)   { alignLeftBtn->setVisible(true);   alignLeftBtn->toFront(false); }
-        if (alignCenterBtn != nullptr) { alignCenterBtn->setVisible(true); alignCenterBtn->toFront(false); }
-        if (alignRightBtn != nullptr)  { alignRightBtn->setVisible(true);  alignRightBtn->toFront(false); }
+        if (alignLeftBtn != nullptr)   alignLeftBtn->setVisible(true);
+        if (alignCenterBtn != nullptr) alignCenterBtn->setVisible(true);
+        if (alignRightBtn != nullptr)  alignRightBtn->setVisible(true);
     }
     else
     {
@@ -1117,10 +1125,9 @@ void SyllableCellComponent::mouseDoubleClick(const juce::MouseEvent& e)
 void SyllableCellComponent::mouseEnter(const juce::MouseEvent& e)
 {
     updateCornerAddButtonPosition((float)e.x);
-    if (removeSyllableBtn != nullptr)
+    if (removeSyllableBtn != nullptr && !removeSyllableBtn->isVisible())
     {
         removeSyllableBtn->setVisible(true);
-        removeSyllableBtn->toFront(false);
     }
 }
 
@@ -1128,18 +1135,21 @@ void SyllableCellComponent::mouseExit(const juce::MouseEvent&)
 {
     if (!isMouseOver(true))
     {
-        if (cornerAddBtn != nullptr)   cornerAddBtn->setVisible(false);
+        if (cornerAddBtn != nullptr)      cornerAddBtn->setVisible(false);
         if (removeSyllableBtn != nullptr) removeSyllableBtn->setVisible(false);
     }
 }
 
 void SyllableCellComponent::mouseMove(const juce::MouseEvent& e)
 {
-    updateCornerAddButtonPosition((float)e.x);
+    bool onLeft = (e.x < (float)getWidth() * 0.5f);
+    if (onLeft != isCornerLeft || cornerAddBtn == nullptr || !cornerAddBtn->isVisible())
+    {
+        updateCornerAddButtonPosition((float)e.x);
+    }
     if (removeSyllableBtn != nullptr && !removeSyllableBtn->isVisible())
     {
         removeSyllableBtn->setVisible(true);
-        removeSyllableBtn->toFront(false);
     }
 }
 
@@ -1158,7 +1168,6 @@ void SyllableCellComponent::updateCornerAddButtonPosition(float mouseX)
         cornerAddBtn->setTooltip(isCornerLeft ? "Insert syllable before (Alt+Shift+=)"
                                               : "Insert syllable after (Alt+=)");
         cornerAddBtn->setVisible(true);
-        cornerAddBtn->toFront(false);
     }
 }
 
@@ -1180,7 +1189,10 @@ bool SyllableCellComponent::hitTest(int x, int y)
         return true;
     if (removeSyllableBtn != nullptr && removeSyllableBtn->isVisible())
     {
-        if (removeSyllableBtn->getBounds().expanded(1, 2).contains(x, y))
+        auto rb = removeSyllableBtn->getBounds();
+        auto bridge = juce::Rectangle<int>(rb.getX() - 2, getHeight() - 2,
+                                           rb.getWidth() + 4, rb.getBottom() - getHeight() + 4);
+        if (bridge.contains(x, y) || rb.expanded(2, 2).contains(x, y))
             return true;
     }
     return false;
@@ -1576,11 +1588,11 @@ void SyllableCellComponent::resized()
     if (cornerAddBtn != nullptr)
         cornerAddBtn->setBounds(cornerX, cornerY, cornerW, cornerH);
 
-    // Centered '-' button BELOW the center of the cell's bottom border
+    // Centered '-' button visibly BELOW the cell's bottom border (with clear air gap)
     int remW = 14;
-    int remH = 10;
+    int remH = 9;
     int remX = (cellW - remW) / 2;
-    int remY = cellH - 7;
+    int remY = cellH + 4;
     if (removeSyllableBtn != nullptr)
         removeSyllableBtn->setBounds(remX, remY, remW, remH);
 }
