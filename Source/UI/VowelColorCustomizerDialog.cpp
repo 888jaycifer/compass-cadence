@@ -179,6 +179,22 @@ VowelColorCustomizerDialog::VowelColorCustomizerDialog(LyricDocument& doc)
 
     updateRepeatButtons();
 
+    repeatDistLabel.setFont(juce::Font(juce::FontOptions("Segoe UI", 13.0f, juce::Font::bold)));
+    repeatDistLabel.setColour(juce::Label::textColourId, NotebookLookAndFeel::getGraphiteColour());
+    repeatDistLabel.setTooltip("Maximum lines apart for a repeated sequence match (0 = same line, 1 = couplet, 24 = default).");
+    addAndMakeVisible(repeatDistLabel);
+
+    repeatDistSlider.setSliderStyle(juce::Slider::LinearHorizontal);
+    repeatDistSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 72, 22);
+    repeatDistSlider.setRange(0.0, 64.0, 1.0);
+    repeatDistSlider.setTextValueSuffix(" lines");
+    repeatDistSlider.setValue(document.getMaxRepeatLineDistance(), juce::dontSendNotification);
+    repeatDistSlider.setTooltip("Maximum distance in lines/bars between repeated sequences. 0 = same line only, 1 = couplets, 24 = default baseline.");
+    repeatDistSlider.onValueChange = [this] {
+        document.setMaxRepeatLineDistance((int)repeatDistSlider.getValue());
+    };
+    addAndMakeVisible(repeatDistSlider);
+
     closeBtn.setTooltip("Close");
     closeBtn.onClick = [this] {
         if (onClose) onClose();
@@ -247,11 +263,11 @@ void VowelColorCustomizerDialog::paint(juce::Graphics& g)
 
     g.setColour(dark ? juce::Colour(0xFF94A3B8) : juce::Colour(0xFF64748B));
     g.setFont(juce::Font(juce::FontOptions("Segoe UI", 12.0f, juce::Font::plain)));
-    g.drawText("Click any color swatch to customize vowel sounds, or adjust match length", 18, 34, getWidth() - 60, 18, juce::Justification::centredLeft);
+    g.drawText("Click any color swatch to customize vowel sounds, or adjust match rules", 18, 34, getWidth() - 60, 18, juce::Justification::centredLeft);
 
     // Subtle rule line below header & repeat controls
     g.setColour(NotebookLookAndFeel::getRuleLineColour());
-    g.drawLine(14.0f, 96.0f, (float)getWidth() - 14.0f, 96.0f, 1.0f);
+    g.drawLine(14.0f, 126.0f, (float)getWidth() - 14.0f, 126.0f, 1.0f);
 }
 
 void VowelColorCustomizerDialog::resized()
@@ -260,16 +276,19 @@ void VowelColorCustomizerDialog::resized()
     int footerH = 50;
     auto footerArea = b.removeFromBottom(footerH);
 
-    int headerH = 102;
+    int headerH = 132;
     b.removeFromTop(headerH);
 
     closeBtn.setBounds(getWidth() - 36, 12, 24, 24);
 
-    repeatLabel.setBounds(18, 60, 180, 26);
+    repeatLabel.setBounds(18, 58, 180, 26);
     int rBtnW = 90, rBtnH = 26;
-    repeat2Btn.setBounds(202, 60, rBtnW, rBtnH);
-    repeat3Btn.setBounds(202 + rBtnW + 4, 60, rBtnW, rBtnH);
-    repeat4Btn.setBounds(202 + (rBtnW + 4) * 2, 60, rBtnW, rBtnH);
+    repeat2Btn.setBounds(202, 58, rBtnW, rBtnH);
+    repeat3Btn.setBounds(202 + rBtnW + 4, 58, rBtnW, rBtnH);
+    repeat4Btn.setBounds(202 + (rBtnW + 4) * 2, 58, rBtnW, rBtnH);
+
+    repeatDistLabel.setBounds(18, 90, 180, 26);
+    repeatDistSlider.setBounds(202, 90, getWidth() - 202 - 18, 26);
 
     viewport.setBounds(b.reduced(6, 0));
 

@@ -500,6 +500,7 @@
       this.darkMode = true;
       this.colorMode = 'rhymes'; // 'off' | 'rhymes' | 'repeats'
       this.minRepeatLength = 2; // 2, 3, or 4
+      this.maxRepeatLineDistance = parseInt(localStorage.getItem('cc_max_repeat_line_dist') || '24', 10);
       this.hiddenColorCells = new Set(); // Set of "b-p-s" keys
       this.repeatSpans = new Map(); // key: "b-p-s" -> array of "b-p-s" in sequence
       this.followDAW = true;
@@ -1101,6 +1102,9 @@
 
           for (let i = 0; i < M; ++i) {
             for (let j = i + 1; j < M; ++j) {
+              const lineDistance = tokens[j].bar - tokens[i].bar;
+              if (lineDistance > this.maxRepeatLineDistance) break;
+
               if (i > 0 && tokens[i - 1].clean === tokens[j - 1].clean) continue;
 
               let L = 0;
@@ -2262,12 +2266,19 @@
             <h3>Customize Color Palette & Repetition Rules</h3>
             <button class="vst-btn" id="vowel-palette-close-btn" style="font-size:16px;line-height:1;padding:2px 8px;">&times;</button>
           </div>
-          <div class="vowel-palette-repeats-row" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--notebook-rule);margin-bottom:8px;">
+          <div class="vowel-palette-repeats-row" style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--notebook-rule);">
             <span style="font-weight:600;font-size:13px;color:var(--text-main);">Repeats Minimum Syllables:</span>
             <div style="display:flex;gap:4px;">
               <button class="vst-btn ${this.minRepeatLength === 2 ? 'toggled' : ''}" id="vowel-rep-2" style="font-size:11px;padding:3px 8px;">2+ Syllables</button>
               <button class="vst-btn ${this.minRepeatLength === 3 ? 'toggled' : ''}" id="vowel-rep-3" style="font-size:11px;padding:3px 8px;">3+ Syllables</button>
               <button class="vst-btn ${this.minRepeatLength === 4 ? 'toggled' : ''}" id="vowel-rep-4" style="font-size:11px;padding:3px 8px;">4+ Syllables</button>
+            </div>
+          </div>
+          <div class="vowel-palette-distance-row" style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--notebook-rule);margin-bottom:8px;">
+            <span style="font-weight:600;font-size:13px;color:var(--text-main);" title="Maximum lines apart for a repeated sequence match. 0 = same line only, 1 = couplet, 24 = default baseline.">Repeats Max Line Distance:</span>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <input type="range" id="vowel-rep-dist-slider" min="0" max="64" value="${this.maxRepeatLineDistance}" style="width:120px;cursor:pointer;">
+              <span id="vowel-rep-dist-label" style="font-size:12px;font-weight:600;width:75px;text-align:right;color:var(--text-main);">${this.maxRepeatLineDistance === 0 ? '0 (Same)' : this.maxRepeatLineDistance === 1 ? '1 (Couplet)' : this.maxRepeatLineDistance + ' Lines'}</span>
             </div>
           </div>
           <div class="modal-body" id="vowel-palette-body"></div>
@@ -2293,6 +2304,18 @@
             };
           }
         });
+
+        const distSlider = document.getElementById('vowel-rep-dist-slider');
+        const distLabel = document.getElementById('vowel-rep-dist-label');
+        if (distSlider && distLabel) {
+          distSlider.oninput = (e) => {
+            const val = parseInt(e.target.value, 10);
+            this.maxRepeatLineDistance = val;
+            localStorage.setItem('cc_max_repeat_line_dist', val.toString());
+            distLabel.textContent = val === 0 ? '0 (Same)' : val === 1 ? '1 (Couplet)' : `${val} Lines`;
+            this.renderPage();
+          };
+        }
       };
       setupRepeatBtns();
 
@@ -2469,7 +2492,7 @@
           <div class="popup-menu-item ${this.colorMode === 'repeats' ? 'active-item' : ''}">
             ${this.colorMode === 'repeats' ? '✓ ' : '&nbsp;&nbsp;'}Repeats (Exact Matches) ▶
           </div>
-          <div class="popup-submenu" style="width: 150px;">
+          <div class="popup-submenu" style="width: 170px;">
             <div class="popup-menu-item ${this.colorMode === 'repeats' && this.minRepeatLength === 2 ? 'active-item' : ''}" id="cm-rep-2">
               ${this.colorMode === 'repeats' && this.minRepeatLength === 2 ? '✓ ' : '&nbsp;&nbsp;'}2+ Syllables
             </div>
@@ -2478,6 +2501,32 @@
             </div>
             <div class="popup-menu-item ${this.colorMode === 'repeats' && this.minRepeatLength === 4 ? 'active-item' : ''}" id="cm-rep-4">
               ${this.colorMode === 'repeats' && this.minRepeatLength === 4 ? '✓ ' : '&nbsp;&nbsp;'}4+ Syllables
+            </div>
+            <div class="popup-menu-separator"></div>
+            <div class="popup-submenu-container">
+              <div class="popup-menu-item">
+                Max Distance (${this.maxRepeatLineDistance}L) ▶
+              </div>
+              <div class="popup-submenu" style="width: 170px;">
+                ${[
+                  { d: 0, l: '0 Lines (Same Line)' },
+                  { d: 1, l: '1 Line (Couplets)' },
+                  { d: 2, l: '2 Lines' },
+                  { d: 4, l: '4 Lines (1 Stanza)' },
+                  { d: 8, l: '8 Lines (2 Stanzas)' },
+                  { d: 12, l: '12 Lines' },
+                  { d: 16, l: '16 Lines (1 Page)' },
+                  { d: 24, l: '24 Lines (Default)' },
+                  { d: 32, l: '32 Lines (2 Pages)' },
+                  { d: 48, l: '48 Lines' },
+                  { d: 64, l: '64 Lines (Full Song)' },
+                  { d: 256, l: '256 Lines (Unlimited)' }
+                ].map(opt => `
+                  <div class="popup-menu-item ${this.maxRepeatLineDistance === opt.d ? 'active-item' : ''}" id="cm-dist-${opt.d}">
+                    ${this.maxRepeatLineDistance === opt.d ? '✓ ' : '&nbsp;&nbsp;'}${opt.l}
+                  </div>
+                `).join('')}
+              </div>
             </div>
           </div>
         </div>
@@ -2497,9 +2546,13 @@
       `;
       this.contextMenu.style.display = 'block';
 
-      const selectMode = (mode, minLen = null) => {
+      const selectMode = (mode, minLen = null, dist = null) => {
         this.colorMode = mode;
         if (minLen !== null) this.minRepeatLength = minLen;
+        if (dist !== null) {
+          this.maxRepeatLineDistance = dist;
+          localStorage.setItem('cc_max_repeat_line_dist', dist.toString());
+        }
         this.updateColorModeButton();
         this.renderPage();
         this.contextMenu.style.display = 'none';
@@ -2513,6 +2566,12 @@
       if (rep3El) rep3El.onclick = () => selectMode('repeats', 3);
       const rep4El = document.getElementById('cm-rep-4');
       if (rep4El) rep4El.onclick = () => selectMode('repeats', 4);
+
+      [0, 1, 2, 4, 8, 12, 16, 24, 32, 48, 64, 256].forEach(d => {
+        const el = document.getElementById(`cm-dist-${d}`);
+        if (el) el.onclick = () => selectMode('repeats', null, d);
+      });
+
       const offEl = document.getElementById('cm-off');
       if (offEl) offEl.onclick = () => selectMode('off');
       const unhideAllEl = document.getElementById('cm-unhide-all');
@@ -2804,7 +2863,7 @@
           rowsHtml += `<tr><td style="padding:6px 12px;color:#d97706;font-weight:bold;">${(idx+1).toString().padStart(2,'0')}</td><td style="padding:6px 12px;font-family:monospace;">${b.notation.toString()}</td><td style="padding:6px 12px;font-size:15px;">${text}</td><td style="padding:6px 12px;font-family:monospace;font-weight:bold;color:#b45309;">${count}</td></tr>`;
         }
       });
-      return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Compass Cadence Lyrics</title><style>body{font-family:Segoe UI,sans-serif;padding:30px;background:#18181b;color:#f1f5f9;}table{border-collapse:collapse;width:100%;}tr:nth-child(even){background:#222227;}th{text-align:left;padding:8px 12px;border-bottom:2px solid #3f3f46;color:#94a3b8;}</style></head><body><h1>Compass Cadence — Lyric Sheet</h1><table><thead><tr><th>Bar</th><th>Meter</th><th>Lyrics</th><th>Syllables</th></tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`;
+      return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>compass4cadence Lyrics</title><style>body{font-family:Segoe UI,sans-serif;padding:30px;background:#18181b;color:#f1f5f9;}table{border-collapse:collapse;width:100%;}tr:nth-child(even){background:#222227;}th{text-align:left;padding:8px 12px;border-bottom:2px solid #3f3f46;color:#94a3b8;}</style></head><body><h1>compass4cadence — Lyric Sheet</h1><table><thead><tr><th>Bar</th><th>Meter</th><th>Lyrics</th><th>Syllables</th></tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`;
     }
 
     downloadFile(filename, content) {

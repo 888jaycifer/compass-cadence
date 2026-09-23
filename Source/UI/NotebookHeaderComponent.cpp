@@ -634,6 +634,7 @@ void NotebookHeaderComponent::showColorModeMenu()
     if (document == nullptr) return;
     auto curMode = document->getRhymeClassifier().getColorMode();
     int minLen = document->getMinRepeatLength();
+    int curDist = document->getMaxRepeatLineDistance();
 
     juce::PopupMenu menu;
     menu.addItem(1, "Rhymes (Phonetic Vowels)", true, curMode == RhymeClassifier::ColorMode::Rhymes);
@@ -642,6 +643,23 @@ void NotebookHeaderComponent::showColorModeMenu()
     repeatsMenu.addItem(2, "2+ Syllables", true, curMode == RhymeClassifier::ColorMode::Repeats && minLen == 2);
     repeatsMenu.addItem(3, "3+ Syllables", true, curMode == RhymeClassifier::ColorMode::Repeats && minLen == 3);
     repeatsMenu.addItem(4, "4+ Syllables", true, curMode == RhymeClassifier::ColorMode::Repeats && minLen == 4);
+    repeatsMenu.addSeparator();
+
+    juce::PopupMenu distMenu;
+    distMenu.addItem(20, "0 Lines (Same Line Only)", true, curDist == 0);
+    distMenu.addItem(21, "1 Line (Couplets)", true, curDist == 1);
+    distMenu.addItem(22, "2 Lines", true, curDist == 2);
+    distMenu.addItem(23, "4 Lines (Single Stanza)", true, curDist == 4);
+    distMenu.addItem(24, "8 Lines (2 Stanzas)", true, curDist == 8);
+    distMenu.addItem(25, "12 Lines", true, curDist == 12);
+    distMenu.addItem(26, "16 Lines (1 Page)", true, curDist == 16);
+    distMenu.addItem(27, "24 Lines (Default Baseline)", true, curDist == 24);
+    distMenu.addItem(28, "32 Lines (2 Pages)", true, curDist == 32);
+    distMenu.addItem(29, "48 Lines", true, curDist == 48);
+    distMenu.addItem(30, "64 Lines (Full Song)", true, curDist == 64);
+    distMenu.addItem(31, "256 Lines (Unlimited / All)", true, curDist >= 256);
+    repeatsMenu.addSubMenu("Max Line Distance (" + juce::String(curDist) + " lines)", distMenu, true);
+
     menu.addSubMenu("Repeats (Exact Matches)", repeatsMenu, true);
 
     menu.addItem(5, "Colors OFF", true, curMode == RhymeClassifier::ColorMode::Off);
@@ -673,6 +691,16 @@ void NotebookHeaderComponent::showColorModeMenu()
         {
             document->setMinRepeatLength(4);
             document->setColorMode(RhymeClassifier::ColorMode::Repeats);
+        }
+        else if (result >= 20 && result <= 31)
+        {
+            const int distValues[] = { 0, 1, 2, 4, 8, 12, 16, 24, 32, 48, 64, 256 };
+            int idx = result - 20;
+            if (idx >= 0 && idx < 12)
+            {
+                document->setMaxRepeatLineDistance(distValues[idx]);
+                document->setColorMode(RhymeClassifier::ColorMode::Repeats);
+            }
         }
         else if (result == 5)
         {
@@ -890,7 +918,7 @@ void NotebookHeaderComponent::promptExportHtml()
                    .getChildFile("CompassCadence").getChildFile("exports");
     dir.createDirectory();
     auto file = dir.getChildFile("lyrics_sheet.html");
-    juce::String html = document->exportHtmlTable("Compass Cadence — Lyric Sheet");
+    juce::String html = document->exportHtmlTable("compass4cadence — Lyric Sheet");
     if (file.replaceWithText(html))
     {
         file.startAsProcess();

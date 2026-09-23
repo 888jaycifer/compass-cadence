@@ -78,7 +78,7 @@ set(COMPASS_CADENCE_SOURCES
         PLUGIN_MANUFACTURER_CODE "OpAu"
         PLUGIN_CODE "CmpC"
         FORMATS VST3 Standalone
-        PRODUCT_NAME "Compass Cadence"
+        PRODUCT_NAME "compass4cadence"
     )
 
     juce_generate_juce_header(CompassCadence)

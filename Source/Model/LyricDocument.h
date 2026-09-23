@@ -102,7 +102,7 @@ public:
     int getLastBarWithContent() const;
     juce::String exportFormattedText(bool includeSyllableCounts = true, bool includeLineSkips = true) const;
     juce::String exportCsvSpreadsheet() const;
-    juce::String exportHtmlTable(const juce::String& title = "Compass Cadence Lyrics") const;
+    juce::String exportHtmlTable(const juce::String& title = "compass4cadence — Lyric Sheet") const;
 
     void clearCells(const std::vector<std::pair<int, int>>& cells);
     void joinCells(const std::vector<std::pair<int, int>>& cells);
@@ -205,6 +205,8 @@ public:
     // Repeats settings & sequence suppression
     int getMinRepeatLength() const noexcept { return rhymeClassifier.getMinRepeatLength(); }
     void setMinRepeatLength(int len);
+    int getMaxRepeatLineDistance() const noexcept { return rhymeClassifier.getMaxRepeatLineDistance(); }
+    void setMaxRepeatLineDistance(int dist);
     bool isSequenceHiddenAt(int barIndex, int globalSylIndex) const;
     void toggleHideSequenceAt(int barIndex, int globalSylIndex);
     void unhideAllSequences();
@@ -232,6 +234,7 @@ private:
         std::map<std::pair<int, int>, juce::Colour> customCellColors;
         std::set<std::pair<int, int>> hiddenColorCells;
         int minRepeatLength = 2;
+        int maxRepeatLineDistance = 24;
         std::map<int, int> customSpokenSyllableCounts;
         int totalBars = 320;
         int barHeight = 50;

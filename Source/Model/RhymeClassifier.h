@@ -61,6 +61,10 @@ public:
     int getMinRepeatLength() const noexcept { return minRepeatLength; }
     void setMinRepeatLength(int len) noexcept { minRepeatLength = std::clamp(len, 2, 4); }
 
+    // Maximum repeat line distance setting (in lines/bars, default 24, 0 = same line only, 1 = couplet)
+    int getMaxRepeatLineDistance() const noexcept { return maxRepeatLineDistance; }
+    void setMaxRepeatLineDistance(int dist) noexcept { maxRepeatLineDistance = std::clamp(dist, 0, 256); }
+
     // Scans a collection of syllables and computes color assignments for recurring rhymes
     void updateRhymeMap(const std::vector<juce::String>& allSyllables);
 
@@ -106,6 +110,7 @@ private:
 
     ColorMode colorMode = ColorMode::Rhymes;
     int minRepeatLength = 2;
+    int maxRepeatLineDistance = 24;
     std::unordered_map<std::string, juce::Colour> customColours;
     std::unordered_map<std::string, juce::Colour> keyToColour;
     std::unordered_map<uint64_t, juce::Colour> repeatCellColours;

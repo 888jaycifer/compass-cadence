@@ -1,6 +1,6 @@
 {
-  "name": "Compass Cadence — Lyricist & Metric Notepad",
-  "short_name": "Compass Cadence",
+  "name": "compass4cadence — Lyricist & Metric Notepad",
+  "short_name": "compass4cadence",
   "description": "Multi-meter lyric notebook with syllable counts, phoneme rhymes, and live syncopated playback.",
   "start_url": "./index.html",
   "display": "standalone",

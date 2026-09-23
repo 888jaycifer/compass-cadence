@@ -560,6 +560,11 @@ void RhymeClassifier::updateRepetitionMap(const std::vector<DocumentSyllable>& a
     {
         for (int j = i + 1; j < M; ++j)
         {
+            // Skip matches outside query line distance range
+            int lineDistance = tokens[j].bar - tokens[i].bar;
+            if (lineDistance > maxRepeatLineDistance)
+                break;
+
             // Skip non-maximal left extensions
             if (i > 0 && tokens[i - 1].clean == tokens[j - 1].clean)
                 continue;

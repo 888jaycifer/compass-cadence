@@ -385,6 +385,7 @@ void LyricDocument::pushUndoSnapshot()
     snap.customCellColors = customCellColors;
     snap.hiddenColorCells = hiddenColorCells;
     snap.minRepeatLength = rhymeClassifier.getMinRepeatLength();
+    snap.maxRepeatLineDistance = rhymeClassifier.getMaxRepeatLineDistance();
     snap.customSpokenSyllableCounts = customSpokenSyllableCounts;
     snap.totalBars = totalBars;
     snap.barHeight = barHeight;
@@ -415,6 +416,7 @@ void LyricDocument::undo()
     current.customCellColors = customCellColors;
     current.hiddenColorCells = hiddenColorCells;
     current.minRepeatLength = rhymeClassifier.getMinRepeatLength();
+    current.maxRepeatLineDistance = rhymeClassifier.getMaxRepeatLineDistance();
     current.customSpokenSyllableCounts = customSpokenSyllableCounts;
     current.totalBars = totalBars;
     current.barHeight = barHeight;
@@ -434,6 +436,7 @@ void LyricDocument::undo()
     customCellColors = std::move(prev.customCellColors);
     hiddenColorCells = std::move(prev.hiddenColorCells);
     rhymeClassifier.setMinRepeatLength(prev.minRepeatLength);
+    rhymeClassifier.setMaxRepeatLineDistance(prev.maxRepeatLineDistance);
     customSpokenSyllableCounts = std::move(prev.customSpokenSyllableCounts);
     totalBars = prev.totalBars;
     barHeight = prev.barHeight;
@@ -467,6 +470,7 @@ void LyricDocument::redo()
     current.customCellColors = customCellColors;
     current.hiddenColorCells = hiddenColorCells;
     current.minRepeatLength = rhymeClassifier.getMinRepeatLength();
+    current.maxRepeatLineDistance = rhymeClassifier.getMaxRepeatLineDistance();
     current.customSpokenSyllableCounts = customSpokenSyllableCounts;
     current.totalBars = totalBars;
     current.barHeight = barHeight;
@@ -486,6 +490,7 @@ void LyricDocument::redo()
     customCellColors = std::move(next.customCellColors);
     hiddenColorCells = std::move(next.hiddenColorCells);
     rhymeClassifier.setMinRepeatLength(next.minRepeatLength);
+    rhymeClassifier.setMaxRepeatLineDistance(next.maxRepeatLineDistance);
     customSpokenSyllableCounts = std::move(next.customSpokenSyllableCounts);
     totalBars = next.totalBars;
     barHeight = next.barHeight;
@@ -1527,6 +1532,18 @@ void LyricDocument::setMinRepeatLength(int len)
     }
 }
 
+void LyricDocument::setMaxRepeatLineDistance(int dist)
+{
+    int clamped = std::clamp(dist, 0, 256);
+    if (rhymeClassifier.getMaxRepeatLineDistance() != clamped)
+    {
+        pushUndoSnapshot();
+        rhymeClassifier.setMaxRepeatLineDistance(clamped);
+        refreshRhymes();
+        notifyChanged();
+    }
+}
+
 bool LyricDocument::isSequenceHiddenAt(int barIndex, int globalSylIndex) const
 {
     return hiddenColorCells.find({ barIndex, globalSylIndex }) != hiddenColorCells.end();
@@ -1614,6 +1631,7 @@ juce::ValueTree LyricDocument::toValueTree() const
     vt.setProperty("rhymeHighlight", rhymeClassifier.isEnabled(), nullptr);
     vt.setProperty("colorMode", (int)rhymeClassifier.getColorMode(), nullptr);
     vt.setProperty("minRepeatLength", rhymeClassifier.getMinRepeatLength(), nullptr);
+    vt.setProperty("maxRepeatLineDistance", rhymeClassifier.getMaxRepeatLineDistance(), nullptr);
     if (!hiddenColorCells.empty())
     {
         juce::String hiddenStr;
@@ -1740,6 +1758,16 @@ void LyricDocument::fromValueTree(const juce::ValueTree& vt)
     else
     {
         rhymeClassifier.setMinRepeatLength(2);
+    }
+
+    if (vt.hasProperty("maxRepeatLineDistance"))
+    {
+        int md = (int)vt.getProperty("maxRepeatLineDistance", 24);
+        rhymeClassifier.setMaxRepeatLineDistance(md);
+    }
+    else
+    {
+        rhymeClassifier.setMaxRepeatLineDistance(24);
     }
 
     if (vt.hasProperty("hiddenColorCells"))

@@ -45,6 +45,9 @@ private:
     juce::TextButton repeat3Btn { "3+ Syllables" };
     juce::TextButton repeat4Btn { "4+ Syllables" };
 
+    juce::Label repeatDistLabel { {}, "Repeats Max Line Distance:" };
+    juce::Slider repeatDistSlider;
+
     juce::TextButton closeBtn { juce::CharPointer_UTF8("\xc3\x97") };
     juce::TextButton resetBtn { "Reset to Defaults" };
     juce::TextButton doneBtn { "Done" };
