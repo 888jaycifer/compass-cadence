@@ -273,6 +273,44 @@ All 24 test suites passed with exit code 0:
 
 ### Desktop VST3 & Standalone Status
 - Built cleanly in **Release (x64)** mode with zero errors.
-- Deployed updated `Compass Cadence.vst3` directly to:
-  `%LOCALAPPDATA%\Programs\Common\VST3\Compass Cadence.vst3`
+- Deployed updated `compass4cadence.vst3` directly to:
+  `%LOCALAPPDATA%\Programs\Common\VST3\compass4cadence.vst3`
 - Verified **zero regressions** on Windows desktop targets.
+
+---
+
+### 8. True Time-Proportional Flex Mapping, Tuplet Brackets, Stress Borders, Variable Padding & Static DAW Grid Lines
+
+#### 1. True Time-Proportional Flex Mapping (Tier 1 Macro-Pulse Allocation)
+- **Decoupled Phonetic Density from Musical Time**: Deprecated uniform `1/numPulses` division. Pulse widths are derived strictly from musical temporal durations in beats (`beatWeight` / `pulseDuration`).
+- **Equal Time Proportions for Equal Beats**: A triplet and duplet across two beats (`[32]/2:4`) each occupy exactly 1 quarter note of DAW time and physically render at 50% / 50% width on screen.
+- **Asymmetric Additive Meter Parsing**: Supports explicit temporal tags `<d1,d2,...>` or `<d1+d2+...>` in notation strings (e.g. `[332]<1.5,1.5,1.0>:4` or `[332]<3+3+2>:4`), normalizing and physically scaling pulse boxes to exact mathematical percentages ($3/8 = 37.5\%$, $3/8 = 37.5\%$, $2/8 = 25\%$).
+- **Playhead Mapping**: DAW playhead position interpolates along cumulative pulse durations rather than uniform steps.
+
+#### 2. Customizable Tuplet Brackets
+- **Bracket & Ticks Rendering**: Horizontal line spanning each pulse group box with downward vertical ticks on the left and right edges.
+- **Center Numeral**: Displays the subdivision count (`numCells`) centered within a clean gap in the bracket line.
+- **Line & Text Styling**: 1.5px stroke and numeral color bound to `themeTupletAccent` (`#D97706`).
+- **Visibility Threshold**: When row height is compressed below 36px, tuplet numerals are hidden to prevent visual clutter; below 24px, brackets are omitted.
+- **State Machine (3 Modes)**:
+  - `ALL_ON`: Visible on all lines.
+  - `ACTIVE_LINE`: Visible only on the active line currently being edited.
+  - `ALL_OFF`: Hidden everywhere.
+- **Full Menu Access**: Switchable via syllable context menu and header options in both JUCE and Web.
+
+#### 3. Continuous Internal Perimeter Stress Borders
+- **Perimeter Inset Rectangle**: The first syllable cell (`index 0`) of each pulse group box features a full continuous internal perimeter box (`box-shadow: inset 0 0 0 2.5px var(--copper-accent)` in Web CSS, `drawRoundedRectangle(textBounds.reduced(1.25f), 2.0f, 2.5f)` in JUCE).
+- **Collision Avoidance**: Completely replaces left-only border styling, preventing visual collision with 1px DAW structural beat lines.
+
+#### 4. Macro-Pulse Group Padding
+- **10px Horizontal Separation**: Increased the physical gap between pulse group boxes from 8px to 10px in both JUCE (`BarLineComponent::resized`) and Web CSS (`.bar-pulses-grid { gap: 10px; }`).
+
+#### 5. Static DAW Structural Beat Grid Lines
+- **Structural Beat Guides**: Static 1px vertical guide lines rendered at exact physical screen positions corresponding to the DAW's structural beats ($1/B, 2/B, \dots$).
+- **Layering & Color**: Drawn behind pulse group boxes using translucent theme-aware styling (`rgba(0, 0, 0, 0.06)` in light mode, `rgba(255, 255, 255, 0.04)` in dark mode).
+
+#### 6. Cross-Platform Parity & Deployment
+- **JUCE VST3 & Standalone EXE**: Successfully compiled in Release x64 mode with zero errors and deployed to `%LOCALAPPDATA%\Programs\Common\VST3\compass4cadence.vst3`.
+- **Web PWA**: Full parity in [Web/style.css](file:///c:/Users/jjntw/Desktop/MUSIC_boot/VST_customs/compass-cadence/Web/style.css) and [Web/app.js](file:///c:/Users/jjntw/Desktop/MUSIC_boot/VST_customs/compass-cadence/Web/app.js); bumped Service Worker cache to `compass4cadence-v14`.
+- **Git Repository**: Committed and pushed to `origin main`.
+
