@@ -43,29 +43,120 @@
   // 1. Metric Cross-Rhythm Notation Model
   // =========================================================================
   class MetricNotation {
-    constructor(pulseSubdivs = [3, 3, 3, 2, 2, 2], beats = 4) {
+    constructor(pulseSubdivs = [3, 3, 3, 2, 2, 2], beats = 4, pulseDurations = []) {
       this.pulseSubdivs = [...pulseSubdivs];
-      this.beatsPerBar = beats;
+      this.beatsPerBar = Math.max(1, beats);
+      this.pulseDurations = [...pulseDurations];
+      if (this.pulseDurations.length > 0 && this.pulseDurations.length !== this.pulseSubdivs.length) {
+        const defaultDur = this.beatsPerBar / this.pulseSubdivs.length;
+        while (this.pulseDurations.length < this.pulseSubdivs.length) this.pulseDurations.push(defaultDur);
+        this.pulseDurations = this.pulseDurations.slice(0, this.pulseSubdivs.length);
+      }
     }
 
     static fromString(str, fallbackBeats = 4) {
-      if (!str) return new MetricNotation([3, 3, 3, 2, 2, 2], 4);
-      const match = str.trim().match(/^\[([0-9,]+)\](?:\/([0-9]+):([0-9]+))?/);
-      if (!match) return new MetricNotation([3, 3, 3, 2, 2, 2], 4);
-      let digits;
-      if (match[1].includes(',')) {
-        digits = match[1].split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n) && n > 0);
-      } else {
-        digits = match[1].split('').map(Number);
+      if (!str) return new MetricNotation([4, 4, 4, 4], 4);
+      let text = str.trim();
+      let parsedDurations = [];
+      const angleMatch = text.match(/<([^>]+)>/);
+      if (angleMatch) {
+        const angleContent = angleMatch[1];
+        text = text.replace(/<[^>]+>/, '').trim();
+        parsedDurations = angleContent.split(/[,+\s]+/).map(s => parseFloat(s.trim())).filter(n => !isNaN(n) && n > 0);
       }
-      const beats = match[3] ? parseInt(match[3], 10) : (match[2] ? parseInt(match[2], 10) : fallbackBeats);
-      return new MetricNotation(digits.length ? digits : [3, 3, 3, 2, 2, 2], beats || 4);
+
+      let beats = fallbackBeats;
+      let specifiedPulses = -1;
+      let bracketPart = text;
+
+      if (text.includes('/')) {
+        const slashParts = text.split('/');
+        bracketPart = slashParts[0].trim();
+        const ratioPart = slashParts[1].trim();
+        if (ratioPart.includes(':')) {
+          const colonParts = ratioPart.split(':');
+          specifiedPulses = parseInt(colonParts[0], 10);
+          beats = parseInt(colonParts[1], 10);
+        } else {
+          beats = parseInt(ratioPart, 10);
+        }
+      } else if (text.includes(':')) {
+        const colonParts = text.split(':');
+        bracketPart = colonParts[0].trim();
+        beats = parseInt(colonParts[1], 10);
+      }
+
+      if (isNaN(beats) || beats <= 0) beats = fallbackBeats || 4;
+
+      const bracketMatch = bracketPart.match(/\[([^\]]+)\]/);
+      const inner = bracketMatch ? bracketMatch[1].trim() : bracketPart.trim();
+      let digits = [];
+      if (inner.includes(',') || inner.includes('-') || inner.includes(' ')) {
+        digits = inner.split(/[,-s\s]+/).map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n) && n > 0);
+      } else {
+        digits = inner.split('').map(Number).filter(n => !isNaN(n) && n > 0);
+      }
+
+      if (!digits.length) {
+        digits = specifiedPulses > 0 ? new Array(specifiedPulses).fill(4) : [4, 4, 4, 4];
+      }
+
+      if (specifiedPulses > 0 && specifiedPulses !== digits.length) {
+        if (specifiedPulses > digits.length) {
+          const lastVal = digits[digits.length - 1];
+          while (digits.length < specifiedPulses) digits.push(lastVal);
+        } else {
+          digits = digits.slice(0, specifiedPulses);
+        }
+      }
+
+      if (parsedDurations.length > 0) {
+        const sum = parsedDurations.reduce((a, b) => a + b, 0);
+        if (sum > 0 && Math.abs(sum - beats) > 0.001) {
+          const scale = beats / sum;
+          parsedDurations = parsedDurations.map(d => d * scale);
+        }
+      }
+
+      return new MetricNotation(digits, beats, parsedDurations);
+    }
+
+    getPulseDuration(pulseIndex) {
+      if (pulseIndex >= 0 && pulseIndex < this.pulseDurations.length) {
+        const d = this.pulseDurations[pulseIndex];
+        if (d > 0) return d;
+      }
+      const numPulses = this.pulseSubdivs.length;
+      if (numPulses <= 0) return 1.0;
+      return this.beatsPerBar / numPulses;
+    }
+
+    getTotalDuration() {
+      if (this.hasCustomPulseDurations()) {
+        const sum = this.pulseDurations.reduce((a, b) => a + b, 0);
+        if (sum > 0) return sum;
+      }
+      return this.beatsPerBar;
+    }
+
+    getPulseTimeProportion(pulseIndex) {
+      const total = this.getTotalDuration();
+      return total > 0 ? this.getPulseDuration(pulseIndex) / total : 0;
+    }
+
+    hasCustomPulseDurations() {
+      return this.pulseDurations.length > 0 && this.pulseDurations.length === this.pulseSubdivs.length;
     }
 
     toString() {
       const multiDigit = this.pulseSubdivs.some(n => n >= 10);
       const digits = multiDigit ? this.pulseSubdivs.join(',') : this.pulseSubdivs.join('');
-      return `[${digits}]/${this.pulseSubdivs.length}:${this.beatsPerBar}`;
+      let s = `[${digits}]`;
+      if (this.hasCustomPulseDurations()) {
+        s += `<${this.pulseDurations.map(d => Math.floor(d) === d ? d.toFixed(0) : d.toFixed(2)).join(',')}>`;
+      }
+      s += `/${this.pulseSubdivs.length}:${this.beatsPerBar}`;
+      return s;
     }
 
     getTotalSyllables() {
@@ -73,7 +164,7 @@
     }
 
     clone() {
-      return new MetricNotation(this.pulseSubdivs, this.beatsPerBar);
+      return new MetricNotation(this.pulseSubdivs, this.beatsPerBar, this.pulseDurations);
     }
   }
 
@@ -522,14 +613,24 @@
       this.activeEditor = null; // { b, pIdx, sIdx, inputEl }
       this.showAlignmentControls = false;
       this.customVowelColors = JSON.parse(localStorage.getItem('cc_vowel_colors') || '{}');
+      this.rowHeight = parseInt(localStorage.getItem('cc_row_height') || '50', 10);
+      this.tupletBracketMode = localStorage.getItem('cc_tuplet_mode') || 'all_on'; // 'all_on' | 'all_off' | 'active_line'
 
       this.initBars();
       this.cacheDOMElements();
       this.bindUI();
+      this.setTupletBracketMode(this.tupletBracketMode);
       this.renderTabs();
       this.renderPage();
       this.drawSpiralCanvas();
       window.addEventListener('resize', () => this.drawSpiralCanvas());
+    }
+
+    setTupletBracketMode(mode) {
+      this.tupletBracketMode = mode;
+      localStorage.setItem('cc_tuplet_mode', mode);
+      document.body.classList.toggle('tuplet-mode-off', mode === 'all_off');
+      document.body.classList.toggle('tuplet-mode-active', mode === 'active_line');
     }
 
     getVowelColor(vowelKey) {
@@ -1160,7 +1261,13 @@
         const bar = tab.bars[b];
         const row = document.createElement('div');
         row.id = `bar-row-${b}`;
-        row.className = `bar-row ${b % 2 === 1 ? 'even-line' : ''} ${bar.stanzaBreak ? 'stanza-break' : ''}`;
+        const isLineSelected = this.selectedCells.size > 0 && Array.from(this.selectedCells).some(id => id.startsWith(`${b}-`));
+        const isEditingLine = this.activeEditor && this.activeEditor.b === b;
+        const isActiveLine = isLineSelected || isEditingLine;
+        row.className = `bar-row ${b % 2 === 1 ? 'even-line' : ''} ${bar.stanzaBreak ? 'stanza-break' : ''} ${isActiveLine ? 'active-line' : ''} ${this.rowHeight < 36 ? 'compressed-row' : ''}`;
+        if (this.rowHeight && this.rowHeight !== 50) {
+          row.style.height = `${this.rowHeight}px`;
+        }
 
         // 1. Gutter with Stationary Playhead Arrow ▶
         const gutter = document.createElement('div');
@@ -1191,13 +1298,42 @@
         const grid = document.createElement('div');
         grid.className = 'bar-pulses-grid';
 
+        // Static DAW Structural Beat Grid Lines (Requirement 5)
+        const bpb = bar.notation.beatsPerBar || 4;
+        for (let beat = 1; beat < bpb; ++beat) {
+          const beatLine = document.createElement('div');
+          beatLine.className = 'daw-beat-line';
+          beatLine.style.left = `${(beat / bpb) * 100}%`;
+          grid.appendChild(beatLine);
+        }
+
+        const totalDuration = bar.notation.getTotalDuration();
+        const numPulses = bar.syllables.length;
+
         bar.syllables.forEach((pulseArr, pIdx) => {
           const pulseBox = document.createElement('div');
           pulseBox.className = 'pulse-group-box';
 
+          // Proportional Flex Mapping (Requirement 1)
+          const pDur = bar.notation.getPulseDuration(pIdx);
+          const flexRatio = totalDuration > 0 ? (pDur / totalDuration) : (1 / numPulses);
+          pulseBox.style.flex = `${(flexRatio * 100).toFixed(4)} 1 0%`;
+
+          // Tuplet Bracket (Requirement 2)
+          const bracket = document.createElement('div');
+          bracket.className = 'tuplet-bracket';
+          const bracketLine = document.createElement('div');
+          bracketLine.className = 'tuplet-bracket-line';
+          const numeral = document.createElement('div');
+          numeral.className = 'tuplet-numeral';
+          numeral.textContent = pulseArr.length;
+          bracket.appendChild(bracketLine);
+          bracket.appendChild(numeral);
+          pulseBox.appendChild(bracket);
+
           pulseArr.forEach((syl, sIdx) => {
             const cell = document.createElement('div');
-            cell.className = 'syllable-cell';
+            cell.className = 'syllable-cell' + (sIdx === 0 ? ' stress-cell' : '');
             const cellKey = `${b}-${pIdx}-${sIdx}`;
             cell.id = `cell-${cellKey}`;
 
@@ -1965,6 +2101,15 @@
         <div class="popup-menu-item" id="ctx-join">Join Cells (Ctrl+J)</div>
         <div class="popup-menu-item" id="ctx-split">Split Syllables (Ctrl+K)</div>
         <div class="popup-menu-item" id="ctx-clear">Clear Cell (Del)</div>
+        <div class="popup-menu-separator"></div>
+        <div class="popup-submenu-container">
+          <div class="popup-menu-item">Tuplet Brackets ▶</div>
+          <div class="popup-submenu">
+            <div class="popup-menu-item" id="ctx-tuplet-all-on">${this.tupletBracketMode === 'all_on' ? '✓ ' : '&nbsp;&nbsp;'}All Lines (Always On)</div>
+            <div class="popup-menu-item" id="ctx-tuplet-active-line">${this.tupletBracketMode === 'active_line' ? '✓ ' : '&nbsp;&nbsp;'}Active Line Only</div>
+            <div class="popup-menu-item" id="ctx-tuplet-all-off">${this.tupletBracketMode === 'all_off' ? '✓ ' : '&nbsp;&nbsp;'}All Off (Hidden)</div>
+          </div>
+        </div>
       `;
       this.contextMenu.style.display = 'block';
 
@@ -2139,6 +2284,13 @@
         this.clearSelection();
         this.contextMenu.style.display = 'none';
       };
+
+      const tAllOn = document.getElementById('ctx-tuplet-all-on');
+      if (tAllOn) tAllOn.onclick = () => { this.setTupletBracketMode('all_on'); this.contextMenu.style.display = 'none'; };
+      const tActLine = document.getElementById('ctx-tuplet-active-line');
+      if (tActLine) tActLine.onclick = () => { this.setTupletBracketMode('active_line'); this.contextMenu.style.display = 'none'; };
+      const tAllOff = document.getElementById('ctx-tuplet-all-off');
+      if (tAllOff) tAllOff.onclick = () => { this.setTupletBracketMode('all_off'); this.contextMenu.style.display = 'none'; };
     }
 
     showCounterMenu(x, y, b) {
@@ -2559,6 +2711,15 @@
         <div class="popup-menu-item" id="cm-clear-all">
           Clear All Custom Colors (Reset to Auto)
         </div>
+        <div class="popup-menu-separator"></div>
+        <div class="popup-submenu-container">
+          <div class="popup-menu-item">Tuplet Brackets ▶</div>
+          <div class="popup-submenu">
+            <div class="popup-menu-item" id="cm-tuplet-all-on">${this.tupletBracketMode === 'all_on' ? '✓ ' : '&nbsp;&nbsp;'}All Lines (Always On)</div>
+            <div class="popup-menu-item" id="cm-tuplet-active-line">${this.tupletBracketMode === 'active_line' ? '✓ ' : '&nbsp;&nbsp;'}Active Line Only</div>
+            <div class="popup-menu-item" id="cm-tuplet-all-off">${this.tupletBracketMode === 'all_off' ? '✓ ' : '&nbsp;&nbsp;'}All Off (Hidden)</div>
+          </div>
+        </div>
       `;
       this.contextMenu.style.display = 'block';
 
@@ -2629,6 +2790,13 @@
         this.contextMenu.style.display = 'none';
         this.clearAllCustomColors();
       };
+
+      const cmTAllOn = document.getElementById('cm-tuplet-all-on');
+      if (cmTAllOn) cmTAllOn.onclick = () => { this.setTupletBracketMode('all_on'); this.contextMenu.style.display = 'none'; };
+      const cmTActLine = document.getElementById('cm-tuplet-active-line');
+      if (cmTActLine) cmTActLine.onclick = () => { this.setTupletBracketMode('active_line'); this.contextMenu.style.display = 'none'; };
+      const cmTAllOff = document.getElementById('cm-tuplet-all-off');
+      if (cmTAllOff) cmTAllOff.onclick = () => { this.setTupletBracketMode('all_off'); this.contextMenu.style.display = 'none'; };
     }
 
     insertSyllableInBar(b, pIdx, sIdx, insertAfter = false) {

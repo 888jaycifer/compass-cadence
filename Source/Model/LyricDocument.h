@@ -213,6 +213,20 @@ public:
     bool hasHiddenSequences() const noexcept { return !hiddenColorCells.empty(); }
     const std::set<std::pair<int, int>>& getHiddenColorCells() const noexcept { return hiddenColorCells; }
 
+    // Tuplet Brackets
+    enum TupletBracketMode
+    {
+        BracketAllOn = 0,
+        BracketAllOff = 1,
+        BracketActiveLine = 2
+    };
+
+    TupletBracketMode getTupletBracketMode() const noexcept { return tupletBracketMode; }
+    void setTupletBracketMode(TupletBracketMode mode, bool notify = true);
+
+    juce::Colour getThemeTupletAccent() const noexcept { return themeTupletAccent; }
+    void setThemeTupletAccent(const juce::Colour& colour, bool notify = true);
+
     // ValueTree Serialization for DAW project saving
     juce::ValueTree toValueTree() const;
     void fromValueTree(const juce::ValueTree& vt);
@@ -243,6 +257,8 @@ private:
         bool customStanzaBreaksActive = false;
         std::set<int> stanzaBreaks;
         bool showAlignmentControls = false;
+        TupletBracketMode tupletBracketMode = BracketAllOn;
+        juce::Colour themeTupletAccent = juce::Colour::fromString("#FFD97706");
     };
 
     MetricNotation defaultNotation;
@@ -258,6 +274,8 @@ private:
     ViewMode viewMode = ModeScroll;
     bool darkMode = false;
     bool showAlignmentControls = false;
+    TupletBracketMode tupletBracketMode = BracketAllOn;
+    juce::Colour themeTupletAccent = juce::Colour::fromString("#FFD97706");
 
     // Ordered map of bar index to array of syllable strings (guarantees deterministic iteration)
     std::map<int, std::vector<juce::String>> barData;

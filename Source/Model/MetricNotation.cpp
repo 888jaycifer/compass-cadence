@@ -8,13 +8,16 @@ MetricNotation::MetricNotation()
 {
 }
 
-MetricNotation::MetricNotation(int beats, const std::vector<int>& syllables)
-    : beatsPerBar(std::max(1, beats)), syllablesPerPulse(syllables)
+MetricNotation::MetricNotation(int beats, const std::vector<int>& syllables, const std::vector<double>& durations)
+    : beatsPerBar(std::max(1, beats)), syllablesPerPulse(syllables), pulseDurations(durations)
 {
     if (syllablesPerPulse.empty())
         syllablesPerPulse = { 4, 4, 4, 4 };
     for (auto& s : syllablesPerPulse)
         s = std::max(1, s);
+
+    if (!pulseDurations.empty() && pulseDurations.size() != syllablesPerPulse.size())
+        pulseDurations.resize(syllablesPerPulse.size(), (double)beatsPerBar / (double)syllablesPerPulse.size());
 }
 
 void MetricNotation::setBeatsPerBar(int beats)
@@ -36,6 +39,12 @@ void MetricNotation::setPulseCount(int count, int defaultSubdivisions)
     {
         syllablesPerPulse.resize(count);
     }
+
+    if (!pulseDurations.empty())
+    {
+        double defaultDur = (double)beatsPerBar / (double)count;
+        pulseDurations.resize(count, defaultDur);
+    }
 }
 
 int MetricNotation::getSyllablesForPulse(int pulseIndex) const
@@ -51,6 +60,60 @@ void MetricNotation::setSyllablesForPulse(int pulseIndex, int count)
     {
         syllablesPerPulse[pulseIndex] = std::clamp(count, 1, 32);
     }
+}
+
+double MetricNotation::getPulseDuration(int pulseIndex) const
+{
+    if (pulseIndex >= 0 && pulseIndex < (int)pulseDurations.size())
+    {
+        double d = pulseDurations[pulseIndex];
+        if (d > 0.0) return d;
+    }
+    const int numPulses = getPulseCount();
+    if (numPulses <= 0) return 1.0;
+    return (double)beatsPerBar / (double)numPulses;
+}
+
+void MetricNotation::setPulseDuration(int pulseIndex, double duration)
+{
+    if (pulseIndex >= 0 && pulseIndex < getPulseCount())
+    {
+        if (pulseDurations.size() != syllablesPerPulse.size())
+            pulseDurations.assign(syllablesPerPulse.size(), (double)beatsPerBar / (double)syllablesPerPulse.size());
+
+        pulseDurations[pulseIndex] = std::max(0.01, duration);
+    }
+}
+
+void MetricNotation::setPulseDurations(const std::vector<double>& durations)
+{
+    pulseDurations = durations;
+    if (!pulseDurations.empty() && pulseDurations.size() != syllablesPerPulse.size())
+        pulseDurations.resize(syllablesPerPulse.size(), (double)beatsPerBar / (double)syllablesPerPulse.size());
+}
+
+double MetricNotation::getTotalDuration() const
+{
+    if (hasCustomPulseDurations())
+    {
+        double sum = 0.0;
+        for (double d : pulseDurations)
+            sum += d;
+        if (sum > 0.0) return sum;
+    }
+    return (double)beatsPerBar;
+}
+
+double MetricNotation::getPulseTimeProportion(int pulseIndex) const
+{
+    double total = getTotalDuration();
+    if (total <= 0.0) return 0.0;
+    return getPulseDuration(pulseIndex) / total;
+}
+
+bool MetricNotation::hasCustomPulseDurations() const noexcept
+{
+    return !pulseDurations.empty() && pulseDurations.size() == syllablesPerPulse.size();
 }
 
 int MetricNotation::getTotalSyllables() const
@@ -105,14 +168,24 @@ PlayheadLocation MetricNotation::calculateLocationInBar(int barIndex, double bea
     if (numPulses <= 0)
         return loc;
 
-    double pulsePos = (beatInBar / bpb) * (double)numPulses;
-    loc.pulse = std::clamp((int)std::floor(pulsePos), 0, numPulses - 1);
+    const double totalDur = getTotalDuration();
+    double currentPulseBeat = loc.barProgress * totalDur;
 
-    double pulseFraction = pulsePos - (double)loc.pulse;
-    int countInPulse = getSyllablesForPulse(loc.pulse);
-    loc.syllableInPulse = std::clamp((int)std::floor(pulseFraction * (double)countInPulse), 0, countInPulse - 1);
+    for (int p = 0; p < numPulses; ++p)
+    {
+        double pDur = getPulseDuration(p);
+        if (currentPulseBeat < pDur || p == numPulses - 1)
+        {
+            loc.pulse = p;
+            double pulseFraction = (pDur > 0.0) ? std::clamp(currentPulseBeat / pDur, 0.0, 0.999999) : 0.0;
+            int countInPulse = getSyllablesForPulse(p);
+            loc.syllableInPulse = std::clamp((int)std::floor(pulseFraction * (double)countInPulse), 0, countInPulse - 1);
+            loc.globalSyllableIndex = getGlobalSyllableIndex(loc.pulse, loc.syllableInPulse);
+            break;
+        }
+        currentPulseBeat -= pDur;
+    }
 
-    loc.globalSyllableIndex = getGlobalSyllableIndex(loc.pulse, loc.syllableInPulse);
     return loc;
 }
 
@@ -146,7 +219,24 @@ juce::String MetricNotation::toNotationString() const
             s += ",";
         s += juce::String(syllablesPerPulse[i]);
     }
-    s += "]/" + juce::String(getPulseCount()) + ":" + juce::String(beatsPerBar);
+    s += "]";
+
+    if (hasCustomPulseDurations())
+    {
+        s += "<";
+        for (size_t i = 0; i < pulseDurations.size(); ++i)
+        {
+            if (i > 0) s += ",";
+            double d = pulseDurations[i];
+            if (std::floor(d) == d)
+                s += juce::String((int)d);
+            else
+                s += juce::String(d, 2);
+        }
+        s += ">";
+    }
+
+    s += "/" + juce::String(getPulseCount()) + ":" + juce::String(beatsPerBar);
     return s;
 }
 
@@ -155,6 +245,24 @@ MetricNotation MetricNotation::fromNotationString(const juce::String& rawText, i
     juce::String text = rawText.trim();
     if (text.isEmpty())
         return MetricNotation(defaultBeats, { 4, 4, 4, 4 });
+
+    std::vector<double> parsedDurations;
+    int openAngle = text.indexOfChar('<');
+    int closeAngle = text.indexOfChar('>');
+    if (openAngle >= 0 && closeAngle > openAngle)
+    {
+        juce::String angleContent = text.substring(openAngle + 1, closeAngle).trim();
+        text = text.substring(0, openAngle).trim() + text.substring(closeAngle + 1).trim();
+
+        juce::StringArray durTokens;
+        durTokens.addTokens(angleContent, ",+ ", "");
+        for (const auto& tok : durTokens)
+        {
+            double val = tok.trim().getDoubleValue();
+            if (val > 0.0)
+                parsedDurations.push_back(val);
+        }
+    }
 
     int beats = defaultBeats;
     int specifiedPulses = -1;
@@ -176,6 +284,16 @@ MetricNotation MetricNotation::fromNotationString(const juce::String& rawText, i
         else
         {
             beats = ratioPart.getIntValue();
+        }
+    }
+    else
+    {
+        // Could be e.g. [332]:4 without slash
+        int colonIdx = text.indexOfChar(':');
+        if (colonIdx >= 0)
+        {
+            bracketPart = text.substring(0, colonIdx).trim();
+            beats = text.substring(colonIdx + 1).getIntValue();
         }
     }
 
@@ -245,12 +363,29 @@ MetricNotation MetricNotation::fromNotationString(const juce::String& rawText, i
         }
     }
 
-    return MetricNotation(beats, parsedSyllables);
+    // If durations were supplied, check if scaling is needed (e.g. <3+3+2> with beats=4 -> normalize to beats)
+    if (!parsedDurations.empty())
+    {
+        double sum = 0.0;
+        for (double d : parsedDurations) sum += d;
+        if (sum > 0.0 && std::abs(sum - (double)beats) > 0.001)
+        {
+            double scale = (double)beats / sum;
+            for (auto& d : parsedDurations) d *= scale;
+        }
+    }
+
+    return MetricNotation(beats, parsedSyllables, parsedDurations);
 }
 
 void MetricNotation::addPulse(int syllables)
 {
     syllablesPerPulse.push_back(std::clamp(syllables, 1, 32));
+    if (!pulseDurations.empty())
+    {
+        double defaultDur = (double)beatsPerBar / (double)syllablesPerPulse.size();
+        pulseDurations.push_back(defaultDur);
+    }
 }
 
 void MetricNotation::removePulse(int pulseIndex)
@@ -258,12 +393,19 @@ void MetricNotation::removePulse(int pulseIndex)
     if (syllablesPerPulse.size() > 1 && pulseIndex >= 0 && pulseIndex < (int)syllablesPerPulse.size())
     {
         syllablesPerPulse.erase(syllablesPerPulse.begin() + pulseIndex);
+        if (pulseIndex < (int)pulseDurations.size())
+        {
+            pulseDurations.erase(pulseDurations.begin() + pulseIndex);
+        }
     }
 }
 
 bool MetricNotation::operator==(const MetricNotation& other) const
 {
-    return beatsPerBar == other.beatsPerBar && syllablesPerPulse == other.syllablesPerPulse;
+    return beatsPerBar == other.beatsPerBar &&
+           syllablesPerPulse == other.syllablesPerPulse &&
+           pulseDurations == other.pulseDurations;
 }
 
 } // namespace CompassCadence
+

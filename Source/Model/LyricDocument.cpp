@@ -393,6 +393,8 @@ void LyricDocument::pushUndoSnapshot()
     snap.darkMode = darkMode;
     snap.customStanzaBreaksActive = customStanzaBreaksActive;
     snap.stanzaBreaks = stanzaBreaks;
+    snap.tupletBracketMode = tupletBracketMode;
+    snap.themeTupletAccent = themeTupletAccent;
 
     undoStack.push_back(std::move(snap));
     if (undoStack.size() > 100)
@@ -424,6 +426,8 @@ void LyricDocument::undo()
     current.darkMode = darkMode;
     current.customStanzaBreaksActive = customStanzaBreaksActive;
     current.stanzaBreaks = stanzaBreaks;
+    current.tupletBracketMode = tupletBracketMode;
+    current.themeTupletAccent = themeTupletAccent;
     redoStack.push_back(std::move(current));
 
     DocumentSnapshot prev = std::move(undoStack.back());
@@ -444,6 +448,8 @@ void LyricDocument::undo()
     darkMode = prev.darkMode;
     customStanzaBreaksActive = prev.customStanzaBreaksActive;
     stanzaBreaks = std::move(prev.stanzaBreaks);
+    tupletBracketMode = prev.tupletBracketMode;
+    themeTupletAccent = prev.themeTupletAccent;
     NotebookLookAndFeel::setDarkMode(darkMode);
     bool notationChanged = (defaultNotation != prev.defaultNotation || barNotations != prev.barNotations);
     defaultNotation = prev.defaultNotation;
@@ -478,6 +484,8 @@ void LyricDocument::redo()
     current.darkMode = darkMode;
     current.customStanzaBreaksActive = customStanzaBreaksActive;
     current.stanzaBreaks = stanzaBreaks;
+    current.tupletBracketMode = tupletBracketMode;
+    current.themeTupletAccent = themeTupletAccent;
     undoStack.push_back(std::move(current));
 
     DocumentSnapshot next = std::move(redoStack.back());
@@ -498,6 +506,8 @@ void LyricDocument::redo()
     darkMode = next.darkMode;
     customStanzaBreaksActive = next.customStanzaBreaksActive;
     stanzaBreaks = std::move(next.stanzaBreaks);
+    tupletBracketMode = next.tupletBracketMode;
+    themeTupletAccent = next.themeTupletAccent;
     NotebookLookAndFeel::setDarkMode(darkMode);
     bool notationChanged = (defaultNotation != next.defaultNotation || barNotations != next.barNotations);
     defaultNotation = next.defaultNotation;
@@ -507,6 +517,28 @@ void LyricDocument::redo()
     if (notationChanged)
         notifyNotationChanged();
     notifyChanged();
+}
+
+void LyricDocument::setTupletBracketMode(TupletBracketMode mode, bool notify)
+{
+    if (tupletBracketMode != mode)
+    {
+        pushUndoSnapshot();
+        tupletBracketMode = mode;
+        if (notify)
+            notifyChanged();
+    }
+}
+
+void LyricDocument::setThemeTupletAccent(const juce::Colour& colour, bool notify)
+{
+    if (themeTupletAccent != colour)
+    {
+        pushUndoSnapshot();
+        themeTupletAccent = colour;
+        if (notify)
+            notifyChanged();
+    }
 }
 
 void LyricDocument::setBarHeight(int h)
@@ -1628,6 +1660,8 @@ juce::ValueTree LyricDocument::toValueTree() const
     vt.setProperty("barHeight", barHeight, nullptr);
     vt.setProperty("darkMode", darkMode, nullptr);
     vt.setProperty("showAlignmentControls", showAlignmentControls, nullptr);
+    vt.setProperty("tupletBracketMode", (int)tupletBracketMode, nullptr);
+    vt.setProperty("themeTupletAccent", themeTupletAccent.toString(), nullptr);
     vt.setProperty("rhymeHighlight", rhymeClassifier.isEnabled(), nullptr);
     vt.setProperty("colorMode", (int)rhymeClassifier.getColorMode(), nullptr);
     vt.setProperty("minRepeatLength", rhymeClassifier.getMinRepeatLength(), nullptr);
@@ -1739,6 +1773,11 @@ void LyricDocument::fromValueTree(const juce::ValueTree& vt)
     barHeight = vt.getProperty("barHeight", 50);
     darkMode = vt.getProperty("darkMode", false);
     showAlignmentControls = vt.getProperty("showAlignmentControls", false);
+    tupletBracketMode = (TupletBracketMode)(int)vt.getProperty("tupletBracketMode", (int)BracketAllOn);
+    if (vt.hasProperty("themeTupletAccent"))
+        themeTupletAccent = juce::Colour::fromString(vt.getProperty("themeTupletAccent").toString());
+    else
+        themeTupletAccent = juce::Colour::fromString("#FFD97706");
     NotebookLookAndFeel::setDarkMode(darkMode);
     if (vt.hasProperty("colorMode"))
     {

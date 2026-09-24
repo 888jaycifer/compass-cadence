@@ -671,6 +671,14 @@ void NotebookHeaderComponent::showColorModeMenu()
     menu.addItem(5, "Colors OFF", true, curMode == RhymeClassifier::ColorMode::Off);
     menu.addSeparator();
 
+    juce::PopupMenu tupletMenu;
+    auto tMode = document->getTupletBracketMode();
+    tupletMenu.addItem(801, "All Lines (Always On)", true, tMode == LyricDocument::BracketAllOn);
+    tupletMenu.addItem(802, "Active Line Only", true, tMode == LyricDocument::BracketActiveLine);
+    tupletMenu.addItem(803, "All Off (Hidden)", true, tMode == LyricDocument::BracketAllOff);
+    menu.addSubMenu("Tuplet Brackets", tupletMenu, true);
+    menu.addSeparator();
+
     if (document->hasHiddenSequences())
     {
         menu.addItem(6, "Unhide All Rhyme Color Pairs / Sequences");
@@ -778,6 +786,18 @@ void NotebookHeaderComponent::showColorModeMenu()
         else if (result == 7)
         {
             document->clearAllCustomCellColors();
+        }
+        else if (result == 801)
+        {
+            document->setTupletBracketMode(LyricDocument::BracketAllOn);
+        }
+        else if (result == 802)
+        {
+            document->setTupletBracketMode(LyricDocument::BracketActiveLine);
+        }
+        else if (result == 803)
+        {
+            document->setTupletBracketMode(LyricDocument::BracketAllOff);
         }
 
         updateRhymeButtonDisplay();

@@ -70,6 +70,71 @@ void PulseGroupComponent::paint(juce::Graphics& g)
                              dashLengths, 2, 1.0f);
         }
     }
+
+    // Tuplet Brackets (State Machine: ALL_ON, ALL_OFF, ACTIVE_LINE)
+    auto mode = document.getTupletBracketMode();
+    if (mode == LyricDocument::BracketAllOff)
+        return;
+
+    if (mode == LyricDocument::BracketActiveLine)
+    {
+        bool isCurrentBarActive = false;
+        for (const auto& cell : document.getSelectedCells())
+        {
+            if (cell.first == barIndex)
+            {
+                isCurrentBarActive = true;
+                break;
+            }
+        }
+        if (!isCurrentBarActive)
+            return;
+    }
+
+    if (getHeight() < 24)
+        return;
+
+    const juce::Colour tupletCol = document.getThemeTupletAccent();
+    g.setColour(tupletCol);
+
+    juce::String numStr = juce::String(numCells);
+
+    float bracketY = (float)boxH + 3.0f;
+    float tickLen = 3.5f;
+    float xLeft = bounds.getX() + 2.0f;
+    float xRight = bounds.getRight() - 2.0f;
+    float midX = (xLeft + xRight) * 0.5f;
+
+    bool showNumeral = (getHeight() >= 36);
+
+    if (showNumeral)
+    {
+        juce::Font numFont(juce::FontOptions("Calibri", 10.0f, juce::Font::bold));
+        g.setFont(numFont);
+        float numW = (float)numFont.getStringWidth(numStr) + 6.0f;
+        float halfW = numW * 0.5f;
+
+        // Left bracket segment & tick
+        g.drawLine(xLeft, bracketY, xLeft, bracketY + tickLen, 1.5f);
+        if (midX - halfW > xLeft)
+            g.drawLine(xLeft, bracketY, midX - halfW, bracketY, 1.5f);
+
+        // Right bracket segment & tick
+        g.drawLine(xRight, bracketY, xRight, bracketY + tickLen, 1.5f);
+        if (xRight > midX + halfW)
+            g.drawLine(midX + halfW, bracketY, xRight, bracketY, 1.5f);
+
+        // Centered numeral
+        juce::Rectangle<float> numRect(midX - halfW, bracketY - 6.0f, numW, 12.0f);
+        g.drawFittedText(numStr, numRect.toNearestInt(), juce::Justification::centred, 1);
+    }
+    else
+    {
+        // Compact: continuous bracket with left/right ticks, no numeral
+        g.drawLine(xLeft, bracketY, xLeft, bracketY + tickLen, 1.5f);
+        g.drawLine(xRight, bracketY, xRight, bracketY + tickLen, 1.5f);
+        g.drawLine(xLeft, bracketY, xRight, bracketY, 1.5f);
+    }
 }
 
 void PulseGroupComponent::resized()

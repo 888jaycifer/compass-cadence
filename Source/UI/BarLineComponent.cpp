@@ -290,6 +290,23 @@ void BarLineComponent::paint(juce::Graphics& g)
     int counterX = (int)bounds.getWidth() - counterW - counterMarginRight;
     int pulseEndX = counterX - 8;
     g.drawLine((float)pulseEndX + 4.0f, 4.0f, (float)pulseEndX + 4.0f, bounds.getBottom() - 4.0f, 1.0f);
+
+    // 6. Static DAW structural beat grid lines behind pulse boxes
+    const auto& notation = document.getNotation(barIndex);
+    const int bpb = notation.getBeatsPerBar();
+    if (bpb > 1 && pulseEndX > pulseStartX)
+    {
+        float totalPulseSpan = (float)(pulseEndX - pulseStartX);
+        juce::Colour dawBeatCol = document.isDarkMode()
+            ? juce::Colours::white.withAlpha(0.04f)
+            : juce::Colours::black.withAlpha(0.06f);
+        g.setColour(dawBeatCol);
+        for (int b = 1; b < bpb; ++b)
+        {
+            float lineX = (float)pulseStartX + totalPulseSpan * ((float)b / (float)bpb);
+            g.drawLine(lineX, 2.0f, lineX, bounds.getBottom() - 2.0f, 1.0f);
+        }
+    }
 }
 
 void BarLineComponent::paintOverChildren(juce::Graphics&)
@@ -341,17 +358,20 @@ void BarLineComponent::resized()
     if (availableWidth <= 0)
         return;
 
-    int gap = 8; // Spacing gap between pulse group boxes
+    int gap = 10; // Spacing gap between pulse group boxes (Requirement 4: 10px gap)
     int totalGaps = (numPulses - 1) * gap;
     int netWidth = availableWidth - totalGaps;
     if (netWidth <= 0) netWidth = availableWidth;
 
-    int pulseWidth = netWidth / numPulses;
+    const auto& notation = document.getNotation(barIndex);
+    const double totalDuration = notation.getTotalDuration();
 
     int curX = pulseStartX;
     for (int p = 0; p < numPulses; ++p)
     {
-        int w = (p == numPulses - 1) ? (pulseStartX + availableWidth - curX) : pulseWidth;
+        double pulseWeight = notation.getPulseDuration(p);
+        double ratio = (totalDuration > 0.0) ? (pulseWeight / totalDuration) : (1.0 / (double)numPulses);
+        int w = (p == numPulses - 1) ? (pulseStartX + availableWidth - curX) : (int)std::round(netWidth * ratio);
         pulseGroups[p]->setBounds(curX, y, w, h);
         curX += w + gap;
     }

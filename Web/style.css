@@ -413,9 +413,25 @@ button.vst-btn.toggled {
 .bar-pulses-grid {
   display: flex;
   flex: 1;
-  gap: 8px;
+  gap: 10px; /* Requirement 4: 10px gap */
   align-items: center;
   margin: 0 6px;
+  position: relative;
+}
+
+/* Static DAW Structural Beat Grid Lines (Requirement 5) */
+.daw-beat-line {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 1px;
+  background: rgba(0, 0, 0, 0.06);
+  pointer-events: none;
+  z-index: 1;
+}
+
+body.dark-mode .daw-beat-line {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 /* Pulse Group Component (2.2px rounded border defining the macro-pulse) */
@@ -428,6 +444,67 @@ button.vst-btn.toggled {
   background: var(--pulse-box-bg);
   position: relative;
   overflow: visible;
+  z-index: 2;
+}
+
+/* Tuplet Bracket Under Pulse Group Box (Requirement 2) */
+.tuplet-bracket {
+  position: absolute;
+  bottom: -11px;
+  left: 2px;
+  right: 2px;
+  height: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.tuplet-bracket-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-top: 1.5px solid var(--copper-accent);
+  border-left: 1.5px solid var(--copper-accent);
+  border-right: 1.5px solid var(--copper-accent);
+}
+
+.tuplet-numeral {
+  position: relative;
+  background: var(--paper-bg);
+  padding: 0 4px;
+  font-family: Calibri, "Segoe UI", sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--copper-accent);
+  line-height: 1;
+  margin-top: -3px;
+  z-index: 6;
+}
+
+body.dark-mode .tuplet-numeral {
+  background: var(--paper-bg);
+}
+
+.even-line .tuplet-numeral {
+  background: var(--paper-even);
+}
+
+/* Tuplet Bracket State Machine */
+body.tuplet-mode-off .tuplet-bracket {
+  display: none !important;
+}
+
+body.tuplet-mode-active .bar-row:not(.active-line) .tuplet-bracket {
+  display: none !important;
+}
+
+/* Visibility threshold for row compression (<36px) */
+.bar-row.compressed-row .tuplet-numeral {
+  display: none !important;
 }
 
 /* Syllable Cell Component */
@@ -441,6 +518,12 @@ button.vst-btn.toggled {
   cursor: text;
   background: transparent;
   padding: 0 2px;
+}
+
+/* Continuous Internal Perimeter Stress Border on first cell of each pulse group (Requirement 3) */
+.syllable-cell.stress-cell,
+.pulse-group-box .syllable-cell:first-child {
+  box-shadow: inset 0 0 0 2.5px var(--copper-accent);
 }
 
 /* Inner dashed divider between cells */

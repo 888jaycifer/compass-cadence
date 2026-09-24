@@ -881,6 +881,16 @@ void SyllableCellComponent::showContextMenu(const juce::MouseEvent&)
     menu.addItem(602, "Split Syllables (Ctrl+K)", trimmed.isNotEmpty());
     menu.addItem(603, "Clear Cell (Del)", trimmed.isNotEmpty());
 
+    menu.addSeparator();
+
+    // 9. Tuplet Brackets
+    juce::PopupMenu tupletSubMenu;
+    auto curTupletMode = document.getTupletBracketMode();
+    tupletSubMenu.addItem(801, "All Lines (Always On)", true, curTupletMode == LyricDocument::BracketAllOn);
+    tupletSubMenu.addItem(802, "Active Line Only", true, curTupletMode == LyricDocument::BracketActiveLine);
+    tupletSubMenu.addItem(803, "All Off (Hidden)", true, curTupletMode == LyricDocument::BracketAllOff);
+    menu.addSubMenu("Tuplet Brackets", tupletSubMenu);
+
     int bIdx = barIndex;
     int gIdx = globalSyllableIndex;
     auto& docRef = document;
@@ -1076,6 +1086,18 @@ void SyllableCellComponent::showContextMenu(const juce::MouseEvent&)
                 document.setSyllable(barIndex, globalSyllableIndex, "");
                 updateContent();
             }
+        }
+        else if (result == 801)
+        {
+            docRef.setTupletBracketMode(LyricDocument::BracketAllOn);
+        }
+        else if (result == 802)
+        {
+            docRef.setTupletBracketMode(LyricDocument::BracketActiveLine);
+        }
+        else if (result == 803)
+        {
+            docRef.setTupletBracketMode(LyricDocument::BracketAllOff);
         }
     });
 }
@@ -1578,6 +1600,14 @@ void SyllableCellComponent::paint(juce::Graphics& g)
         // Pencil selection border
         g.setColour(juce::Colour(0x992563EB));
         g.drawRoundedRectangle(textBounds, 2.0f, 1.5f);
+    }
+
+    // 2.5. Continuous Perimeter Stress Border on first syllable of each pulse group (Requirement 3)
+    if (syllableInPulse == 0)
+    {
+        auto stressRect = textBounds.reduced(1.25f);
+        g.setColour(document.getThemeTupletAccent().withAlpha(0.85f));
+        g.drawRoundedRectangle(stressRect, 2.0f, 2.5f);
     }
 
     // 3. Syllable text (when not actively editing with TextEditor)
