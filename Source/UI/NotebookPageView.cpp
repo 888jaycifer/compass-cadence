@@ -780,14 +780,18 @@ void NotebookPageView::paint(juce::Graphics& g)
 void NotebookPageView::resized()
 {
     int rulerH = 24;
+    int scrollbarW = viewport.getScrollBarThickness();
+    int contentW = getWidth() - scrollbarW;
+
     if (timelineRuler != nullptr)
     {
         timelineRuler->setBounds(0, 0, getWidth(), rulerH);
+        timelineRuler->setContentWidth(contentW);
     }
     viewport.setBounds(0, rulerH, getWidth(), getHeight() - rulerH);
     if (pageContent != nullptr)
     {
-        pageContent->setSize(viewport.getWidth() - viewport.getScrollBarThickness(), pageContent->getHeight());
+        pageContent->setSize(contentW, pageContent->getHeight());
         pageContent->resized();
     }
 }
@@ -1018,9 +1022,10 @@ void DAWTimelineRulerComponent::paint(juce::Graphics& g)
     g.drawLine((float)pulseStartX - 5.0f, 2.0f, (float)pulseStartX - 5.0f, bounds.getBottom() - 2.0f, 1.0f);
 
     // Vertical Divider after pulse grid
+    int w = (contentWidth > 0) ? contentWidth : (int)bounds.getWidth();
     int counterW = 88;
     int counterMarginRight = 24;
-    int counterX = (int)bounds.getWidth() - counterW - counterMarginRight;
+    int counterX = w - counterW - counterMarginRight;
     int pulseEndX = counterX - 8;
     g.drawLine((float)pulseEndX + 4.0f, 2.0f, (float)pulseEndX + 4.0f, bounds.getBottom() - 2.0f, 1.0f);
 
@@ -1028,21 +1033,21 @@ void DAWTimelineRulerComponent::paint(juce::Graphics& g)
     const auto& notation = document.getNotation();
     int bpb = notation.getBeatsPerBar();
     if (bpb <= 0) bpb = 4;
+    int availableWidth = pulseEndX - pulseStartX;
 
-    if (pulseEndX > pulseStartX)
+    if (availableWidth > 0)
     {
-        float totalSpan = (float)(pulseEndX - pulseStartX);
         juce::Font badgeFont(juce::FontOptions("Calibri", 10.5f, juce::Font::bold));
         g.setFont(badgeFont);
 
         for (int b = 0; b < bpb; ++b)
         {
-            float lineX = (float)pulseStartX + totalSpan * ((float)b / (float)bpb);
+            float lineX = MetricNotation::getBeatScreenX(notation, (double)b, pulseStartX, availableWidth);
             juce::String text = "Beat " + juce::String(b + 1);
             float textW = (float)badgeFont.getStringWidth(text) + 10.0f;
             float badgeH = 15.0f;
             float badgeY = 2.0f;
-            float badgeX = (b == 0) ? lineX : (lineX - (textW * 0.5f));
+            float badgeX = std::max((float)pulseStartX, lineX - (textW * 0.5f));
 
             juce::Rectangle<float> badgeRect(badgeX, badgeY, textW, badgeH);
 
@@ -1058,7 +1063,7 @@ void DAWTimelineRulerComponent::paint(juce::Graphics& g)
             g.setColour(NotebookLookAndFeel::isDarkMode() ? NotebookLookAndFeel::getAccentHoverColour() : NotebookLookAndFeel::getAccentDarkColour());
             g.drawFittedText(text, badgeRect.toNearestInt(), juce::Justification::centred, 1);
 
-            // Downward Tick pointing to the grid line
+            // Downward Tick pointing to the exact grid line
             g.setColour(NotebookLookAndFeel::getAccentColour());
             g.drawLine(lineX, badgeY + badgeH, lineX, bounds.getBottom() - 1.0f, 1.5f);
         }

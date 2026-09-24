@@ -113,11 +113,13 @@ class DAWTimelineRulerComponent : public juce::Component
 {
 public:
     DAWTimelineRulerComponent(LyricDocument& doc, float marginLineX);
+    void setContentWidth(int w) { contentWidth = w; repaint(); }
     void paint(juce::Graphics& g) override;
 
 private:
     LyricDocument& document;
     float marginX;
+    int contentWidth = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DAWTimelineRulerComponent)
 };

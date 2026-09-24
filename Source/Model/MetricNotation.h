@@ -52,6 +52,7 @@ public:
 
     juce::String toNotationString() const;
     static MetricNotation fromNotationString(const juce::String& text, int defaultBeats = 4);
+    static float getBeatScreenX(const MetricNotation& notation, double beat, int pulseStartX, int availableWidth, int gap = 10);
 
     void addPulse(int syllables = 4);
     void removePulse(int pulseIndex);

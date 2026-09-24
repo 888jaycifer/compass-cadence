@@ -91,8 +91,9 @@
       const bracketMatch = bracketPart.match(/\[([^\]]+)\]/);
       const inner = bracketMatch ? bracketMatch[1].trim() : bracketPart.trim();
       let digits = [];
-      if (inner.includes(',') || inner.includes('-') || inner.includes(' ')) {
-        digits = inner.split(/[,-s\s]+/).map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n) && n > 0);
+      const isAdditivePlus = inner.includes('+');
+      if (inner.includes(',') || inner.includes('-') || inner.includes(' ') || isAdditivePlus) {
+        digits = inner.split(/[,+\-\s]+/).map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n) && n > 0);
       } else {
         digits = inner.split('').map(Number).filter(n => !isNaN(n) && n > 0);
       }
@@ -110,6 +111,13 @@
         }
       }
 
+      if (isAdditivePlus && parsedDurations.length === 0 && digits.length > 0) {
+        const sum = digits.reduce((a, b) => a + b, 0);
+        if (sum > 0) {
+          parsedDurations = digits.map(d => (d / sum) * beats);
+        }
+      }
+
       if (parsedDurations.length > 0) {
         const sum = parsedDurations.reduce((a, b) => a + b, 0);
         if (sum > 0 && Math.abs(sum - beats) > 0.001) {
@@ -119,6 +127,30 @@
       }
 
       return new MetricNotation(digits, beats, parsedDurations);
+    }
+
+    static getBeatCSSPosition(notation, beat, gap = 10) {
+      const N = notation.pulseSubdivs.length;
+      if (N <= 0) return '0%';
+      const D = notation.getTotalDuration();
+      if (D <= 0) return '0%';
+
+      const tau = Math.min(1.0, Math.max(0.0, beat / D));
+      let pIdx = 0;
+      let elapsed = 0.0;
+      for (let p = 0; p < N; ++p) {
+        const dur = notation.getPulseDuration(p);
+        if (beat < elapsed + dur || p === N - 1) {
+          pIdx = p;
+          break;
+        }
+        elapsed += dur;
+      }
+
+      if (pIdx === 0 && tau <= 0.0) return '0px';
+      const gapTotalPx = (N - 1) * gap;
+      const pulseGapPx = pIdx * gap;
+      return `calc(${tau} * (100% - ${gapTotalPx}px) + ${pulseGapPx}px)`;
     }
 
     getPulseDuration(pulseIndex) {
@@ -1290,13 +1322,8 @@
       for (let beat = 0; beat < globalBpb; ++beat) {
         const indicator = document.createElement('div');
         indicator.className = 'daw-beat-indicator';
-        if (beat === 0) {
-          indicator.style.left = '0%';
-          indicator.style.transform = 'none';
-        } else {
-          indicator.style.left = `${(beat / globalBpb) * 100}%`;
-          indicator.style.transform = 'translateX(-50%)';
-        }
+        indicator.style.left = MetricNotation.getBeatCSSPosition(this.globalNotation, beat, 10);
+        indicator.style.transform = 'translateX(-50%)';
         indicator.innerHTML = `
           <span class="daw-beat-badge">Beat ${beat + 1}</span>
           <div class="daw-beat-tick"></div>
@@ -1357,11 +1384,7 @@
         for (let beat = 0; beat < bpb; ++beat) {
           const beatLine = document.createElement('div');
           beatLine.className = 'daw-beat-line';
-          if (beat === 0) {
-            beatLine.style.left = '0';
-          } else {
-            beatLine.style.left = `${(beat / bpb) * 100}%`;
-          }
+          beatLine.style.left = MetricNotation.getBeatCSSPosition(bar.notation, beat, 10);
           grid.appendChild(beatLine);
         }
 

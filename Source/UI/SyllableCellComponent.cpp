@@ -1249,7 +1249,7 @@ void SyllableCellComponent::updateCornerAddButtonPosition(float mouseX)
     int boxH = std::max(18, getHeight() - 14);
     int btnW = 12;
     int btnH = 12;
-    int btnY = boxH - btnH - 1;
+    int btnY = boxH + 3;
     int btnX = isCornerLeft ? 2 : (getWidth() - btnW - 2);
 
     if (cornerAddBtn != nullptr)

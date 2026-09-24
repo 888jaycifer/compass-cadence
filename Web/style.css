@@ -427,14 +427,14 @@ button.vst-btn.toggled {
   bottom: 0;
   width: 1px;
   background: rgba(82, 82, 91, 0.35);
-  border-right: 1px dashed rgba(217, 119, 6, 0.45);
+  border-right: 1px dashed var(--copper-accent);
   pointer-events: none;
-  z-index: 1;
+  z-index: 10; /* Render over pulse boxes so it is always visible across syllable cell bars */
 }
 
 body.dark-mode .daw-beat-line {
   background: rgba(255, 255, 255, 0.28);
-  border-right: 1px dashed rgba(245, 158, 11, 0.50);
+  border-right: 1px dashed var(--copper-hover);
 }
 
 /* DAW Timeline Beat Ruler at Top of Display */

@@ -290,38 +290,44 @@ void BarLineComponent::paint(juce::Graphics& g)
     int counterX = (int)bounds.getWidth() - counterW - counterMarginRight;
     int pulseEndX = counterX - 8;
     g.drawLine((float)pulseEndX + 4.0f, 4.0f, (float)pulseEndX + 4.0f, bounds.getBottom() - 4.0f, 1.0f);
+}
 
-    // 6. Static DAW structural beat grid lines behind pulse boxes
+void BarLineComponent::paintOverChildren(juce::Graphics& g)
+{
+    // Static DAW structural beat grid lines drawn over children so they are always visible across syllable cell bars
     const auto& notation = document.getNotation(barIndex);
     const int bpb = notation.getBeatsPerBar();
-    if (bpb > 1 && pulseEndX > pulseStartX)
+    auto bounds = getLocalBounds();
+    int metricX = (int)marginX + 6;
+    int metricW = 96;
+    int pulseStartX = metricX + metricW + 8;
+    int counterW = 88;
+    int counterMarginRight = 24;
+    int counterX = (int)bounds.getWidth() - counterW - counterMarginRight;
+    int pulseEndX = counterX - 8;
+    int availableWidth = pulseEndX - pulseStartX;
+
+    if (bpb > 1 && availableWidth > 0)
     {
-        float totalPulseSpan = (float)(pulseEndX - pulseStartX);
         juce::Colour dawBeatCol = document.isDarkMode()
             ? juce::Colour(0x55FFFFFF)
             : juce::Colour(0x5552525B);
         juce::Colour dawBeatAccent = document.isDarkMode()
-            ? NotebookLookAndFeel::getAccentHoverColour().withAlpha(0.65f)
-            : NotebookLookAndFeel::getAccentColour().withAlpha(0.55f);
+            ? NotebookLookAndFeel::getAccentHoverColour().withAlpha(0.70f)
+            : NotebookLookAndFeel::getAccentColour().withAlpha(0.60f);
 
         const float beatDash[] = { 4.0f, 3.0f };
 
         for (int b = 0; b < bpb; ++b)
         {
-            float lineX = (float)pulseStartX + totalPulseSpan * ((float)b / (float)bpb);
+            float lineX = MetricNotation::getBeatScreenX(notation, (double)b, pulseStartX, availableWidth);
             g.setColour(dawBeatCol);
-            g.drawLine(lineX, 0.0f, lineX, bounds.getBottom(), 1.0f);
+            g.drawLine(lineX, 0.0f, lineX, (float)bounds.getBottom(), 1.0f);
 
             g.setColour(dawBeatAccent);
-            g.drawDashedLine(juce::Line<float>(lineX, 0.0f, lineX, bounds.getBottom()), beatDash, 2, 1.0f);
+            g.drawDashedLine(juce::Line<float>(lineX, 0.0f, lineX, (float)bounds.getBottom()), beatDash, 2, 1.0f);
         }
     }
-}
-
-void BarLineComponent::paintOverChildren(juce::Graphics&)
-{
-    // Sweeping needle playhead removed per user specification:
-    // Replaced with stationary gutter arrow marker ▶ in paint().
 }
 
 void BarLineComponent::resized()

@@ -311,11 +311,12 @@ MetricNotation MetricNotation::fromNotationString(const juce::String& rawText, i
 
     std::vector<int> parsedSyllables;
 
-    // Check if delimited by commas or dashes, e.g. "3,3,3,2,2,2" or "3-3-3-2-2-2"
-    if (inner.containsChar(',') || inner.containsChar('-') || inner.containsChar(' '))
+    // Check if delimited by commas, dashes, pluses, or spaces, e.g. "3,3,3,2,2,2" or "3+3+2"
+    bool isAdditivePlus = inner.containsChar('+');
+    if (inner.containsChar(',') || inner.containsChar('-') || inner.containsChar(' ') || isAdditivePlus)
     {
         juce::StringArray tokens;
-        tokens.addTokens(inner, ",- ", "");
+        tokens.addTokens(inner, ",-+ ", "");
         for (const auto& tok : tokens)
         {
             int val = tok.trim().getIntValue();
@@ -363,6 +364,20 @@ MetricNotation MetricNotation::fromNotationString(const juce::String& rawText, i
         }
     }
 
+    // If additive meter [3+3+2] was used without explicit <...> durations, compute additive temporal proportions
+    if (isAdditivePlus && parsedDurations.empty() && !parsedSyllables.empty())
+    {
+        double sum = 0.0;
+        for (int count : parsedSyllables) sum += (double)count;
+        if (sum > 0.0)
+        {
+            for (int count : parsedSyllables)
+            {
+                parsedDurations.push_back(((double)count / sum) * (double)beats);
+            }
+        }
+    }
+
     // If durations were supplied, check if scaling is needed (e.g. <3+3+2> with beats=4 -> normalize to beats)
     if (!parsedDurations.empty())
     {
@@ -376,6 +391,52 @@ MetricNotation MetricNotation::fromNotationString(const juce::String& rawText, i
     }
 
     return MetricNotation(beats, parsedSyllables, parsedDurations);
+}
+
+float MetricNotation::getBeatScreenX(const MetricNotation& notation, double beat, int pulseStartX, int availableWidth, int gap)
+{
+    const int numPulses = notation.getPulseCount();
+    if (numPulses <= 0 || availableWidth <= 0)
+        return (float)pulseStartX;
+
+    const double totalDuration = notation.getTotalDuration();
+    if (totalDuration <= 0.0)
+        return (float)pulseStartX;
+
+    int totalGaps = (numPulses - 1) * gap;
+    int netWidth = availableWidth - totalGaps;
+    if (netWidth <= 0) netWidth = availableWidth;
+
+    std::vector<int> pulseX(numPulses);
+    std::vector<int> pulseW(numPulses);
+    int curX = pulseStartX;
+    for (int p = 0; p < numPulses; ++p)
+    {
+        double pulseWeight = notation.getPulseDuration(p);
+        double ratio = pulseWeight / totalDuration;
+        int w = (p == numPulses - 1) ? (pulseStartX + availableWidth - curX) : (int)std::round(netWidth * ratio);
+        pulseX[p] = curX;
+        pulseW[p] = w;
+        curX += w + gap;
+    }
+
+    if (beat <= 0.0)
+        return (float)pulseX[0];
+    if (beat >= totalDuration)
+        return (float)(pulseX[numPulses - 1] + pulseW[numPulses - 1]);
+
+    double elapsed = 0.0;
+    for (int p = 0; p < numPulses; ++p)
+    {
+        double dur = notation.getPulseDuration(p);
+        if (beat < elapsed + dur || p == numPulses - 1)
+        {
+            double frac = (dur > 0.0) ? std::clamp((beat - elapsed) / dur, 0.0, 1.0) : 0.0;
+            return (float)pulseX[p] + (float)(frac * (double)pulseW[p]);
+        }
+        elapsed += dur;
+    }
+    return (float)pulseStartX;
 }
 
 void MetricNotation::addPulse(int syllables)
