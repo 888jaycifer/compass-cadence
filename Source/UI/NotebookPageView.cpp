@@ -518,6 +518,8 @@ NotebookPageView::NotebookPageView(CompassCadenceAudioProcessor& proc, LyricDocu
         vsb->onZoomWheel     = [this] (int delta) { handleZoomWheel(delta); };
     }
 
+    timelineRuler = std::make_unique<DAWTimelineRulerComponent>(*document, MARGIN_X);
+    addAndMakeVisible(timelineRuler.get());
     addAndMakeVisible(viewport);
 }
 
@@ -541,6 +543,8 @@ void NotebookPageView::setDocument(LyricDocument& newDoc)
 
     pageContent = std::make_unique<NotebookPageContent>(*document, MARGIN_X);
     viewport.setViewedComponent(pageContent.get(), false);
+    timelineRuler = std::make_unique<DAWTimelineRulerComponent>(*document, MARGIN_X);
+    addAndMakeVisible(timelineRuler.get());
 
     resized();
     repaint();
@@ -775,7 +779,12 @@ void NotebookPageView::paint(juce::Graphics& g)
 
 void NotebookPageView::resized()
 {
-    viewport.setBounds(getLocalBounds());
+    int rulerH = 24;
+    if (timelineRuler != nullptr)
+    {
+        timelineRuler->setBounds(0, 0, getWidth(), rulerH);
+    }
+    viewport.setBounds(0, rulerH, getWidth(), getHeight() - rulerH);
     if (pageContent != nullptr)
     {
         pageContent->setSize(viewport.getWidth() - viewport.getScrollBarThickness(), pageContent->getHeight());
@@ -940,6 +949,10 @@ void NotebookPageView::lyricDocumentChanged()
 
 void NotebookPageView::metricNotationChanged(const MetricNotation&)
 {
+    if (timelineRuler != nullptr)
+    {
+        timelineRuler->repaint();
+    }
     if (pageContent != nullptr)
     {
         pageContent->rebuildBars();
@@ -948,6 +961,10 @@ void NotebookPageView::metricNotationChanged(const MetricNotation&)
 
 void NotebookPageView::barNotationChanged(int barIndex, const MetricNotation&)
 {
+    if (timelineRuler != nullptr)
+    {
+        timelineRuler->repaint();
+    }
     if (pageContent != nullptr)
     {
         pageContent->barNotationChanged(barIndex);
@@ -959,6 +976,92 @@ void NotebookPageView::selectionChanged()
     if (pageContent != nullptr)
     {
         pageContent->updateSelection();
+    }
+}
+
+// -----------------------------------------------------------------------------
+// DAWTimelineRulerComponent
+// -----------------------------------------------------------------------------
+
+DAWTimelineRulerComponent::DAWTimelineRulerComponent(LyricDocument& doc, float marginLineX)
+    : document(doc), marginX(marginLineX)
+{
+}
+
+void DAWTimelineRulerComponent::paint(juce::Graphics& g)
+{
+    auto bounds = getLocalBounds().toFloat();
+
+    // 1. Header paper background
+    g.setColour(NotebookLookAndFeel::isDarkMode() ? juce::Colour(0xFF141416) : juce::Colour(0xFFF2EFE7));
+    g.fillRect(bounds);
+
+    // 2. Ruled horizontal bottom line
+    g.setColour(NotebookLookAndFeel::getRuleLineColour());
+    g.drawLine(0.0f, bounds.getBottom() - 1.0f, bounds.getRight(), bounds.getBottom() - 1.0f, 1.5f);
+
+    // 3. Continuous vertical Red Margin Rule at MARGIN_X
+    g.setColour(NotebookLookAndFeel::getMarginRedColour());
+    g.drawLine(marginX, 0.0f, marginX, bounds.getBottom(), 1.5f);
+
+    // 4. Spiral Binder Wire Rings along the far left edge
+    NotebookLookAndFeel::drawSpiralRings(g, 2.0f, bounds.getHeight(), 18.0f, 28.8f);
+
+    // 5. Left Label "BEAT DIVISION"
+    g.setColour(NotebookLookAndFeel::getLightGraphiteColour());
+    g.setFont(juce::Font(juce::FontOptions("Calibri", 11.0f, juce::Font::bold)));
+    g.drawFittedText("BEAT DIVISION", (int)marginX + 6, 0, 96, (int)bounds.getHeight(), juce::Justification::centredLeft, 1);
+
+    // Vertical Divider before pulse grid
+    int pulseStartX = (int)marginX + 6 + 96 + 8;
+    g.setColour(NotebookLookAndFeel::getLightGraphiteColour().withAlpha(0.25f));
+    g.drawLine((float)pulseStartX - 5.0f, 2.0f, (float)pulseStartX - 5.0f, bounds.getBottom() - 2.0f, 1.0f);
+
+    // Vertical Divider after pulse grid
+    int counterW = 88;
+    int counterMarginRight = 24;
+    int counterX = (int)bounds.getWidth() - counterW - counterMarginRight;
+    int pulseEndX = counterX - 8;
+    g.drawLine((float)pulseEndX + 4.0f, 2.0f, (float)pulseEndX + 4.0f, bounds.getBottom() - 2.0f, 1.0f);
+
+    // 6. Numerical Indicators for each Beat (demarcated at top of display)
+    const auto& notation = document.getNotation();
+    int bpb = notation.getBeatsPerBar();
+    if (bpb <= 0) bpb = 4;
+
+    if (pulseEndX > pulseStartX)
+    {
+        float totalSpan = (float)(pulseEndX - pulseStartX);
+        juce::Font badgeFont(juce::FontOptions("Calibri", 10.5f, juce::Font::bold));
+        g.setFont(badgeFont);
+
+        for (int b = 0; b < bpb; ++b)
+        {
+            float lineX = (float)pulseStartX + totalSpan * ((float)b / (float)bpb);
+            juce::String text = "Beat " + juce::String(b + 1);
+            float textW = (float)badgeFont.getStringWidth(text) + 10.0f;
+            float badgeH = 15.0f;
+            float badgeY = 2.0f;
+            float badgeX = (b == 0) ? lineX : (lineX - (textW * 0.5f));
+
+            juce::Rectangle<float> badgeRect(badgeX, badgeY, textW, badgeH);
+
+            // Badge Background
+            g.setColour(NotebookLookAndFeel::getPaperColour());
+            g.fillRoundedRectangle(badgeRect, 3.0f);
+
+            // Badge Border in Theme Accent
+            g.setColour(NotebookLookAndFeel::getAccentColour());
+            g.drawRoundedRectangle(badgeRect, 3.0f, 1.0f);
+
+            // Badge Text
+            g.setColour(NotebookLookAndFeel::isDarkMode() ? NotebookLookAndFeel::getAccentHoverColour() : NotebookLookAndFeel::getAccentDarkColour());
+            g.drawFittedText(text, badgeRect.toNearestInt(), juce::Justification::centred, 1);
+
+            // Downward Tick pointing to the grid line
+            g.setColour(NotebookLookAndFeel::getAccentColour());
+            g.drawLine(lineX, badgeY + badgeH, lineX, bounds.getBottom() - 1.0f, 1.5f);
+        }
     }
 }
 

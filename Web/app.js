@@ -615,10 +615,12 @@
       this.customVowelColors = JSON.parse(localStorage.getItem('cc_vowel_colors') || '{}');
       this.rowHeight = parseInt(localStorage.getItem('cc_row_height') || '50', 10);
       this.tupletBracketMode = localStorage.getItem('cc_tuplet_mode') || 'all_on'; // 'all_on' | 'all_off' | 'active_line'
+      this.currentThemeAccent = localStorage.getItem('cc_theme_accent') || '#d97706';
 
       this.initBars();
       this.cacheDOMElements();
       this.bindUI();
+      this.setThemeAccent(this.currentThemeAccent);
       this.setTupletBracketMode(this.tupletBracketMode);
       this.renderTabs();
       this.renderPage();
@@ -742,8 +744,11 @@
       this.presetMenu = document.getElementById('preset-menu');
       this.exportMenu = document.getElementById('export-menu');
       this.songsMenu = document.getElementById('songs-menu');
+      this.accentMenu = document.getElementById('accent-menu');
       this.contextMenu = document.getElementById('context-menu');
       this.rowAddMenu = document.getElementById('row-add-menu');
+      this.themeAccentBtn = document.getElementById('theme-accent-btn');
+      this.customAccentPicker = document.getElementById('custom-accent-picker');
       this.vowelPaletteBtn = document.getElementById('vowel-palette-btn');
       this.vowelPaletteDialog = document.getElementById('vowel-palette-dialog');
     }
@@ -859,6 +864,18 @@
       this.exportBtn.addEventListener('click', (e) => { e.stopPropagation(); this.showExportMenu(e); });
       this.songsBtn.addEventListener('click', (e) => { e.stopPropagation(); this.showSongsMenu(e); });
 
+      if (this.themeAccentBtn) {
+        this.themeAccentBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.showAccentMenu(e);
+        });
+      }
+      if (this.customAccentPicker) {
+        this.customAccentPicker.addEventListener('input', (e) => {
+          this.setThemeAccent(e.target.value, 'Custom');
+        });
+      }
+
       // Dark Mode Toggle
       this.darkModeBtn.addEventListener('click', () => {
         this.darkMode = !this.darkMode;
@@ -895,7 +912,7 @@
 
       // Global Dismiss Popup Menus on Click Outside
       document.addEventListener('click', (e) => {
-        [this.presetMenu, this.exportMenu, this.songsMenu, this.contextMenu, this.rowAddMenu].forEach((m) => {
+        [this.presetMenu, this.exportMenu, this.songsMenu, this.accentMenu, this.contextMenu, this.rowAddMenu].forEach((m) => {
           if (m && !m.contains(e.target)) m.style.display = 'none';
         });
       });
@@ -1257,6 +1274,43 @@
         }
       }
 
+      // Top DAW Timeline Ruler with Time Signature Beat Indicators
+      const ruler = document.createElement('div');
+      ruler.className = 'daw-timeline-ruler';
+
+      const rulerLeft = document.createElement('div');
+      rulerLeft.className = 'daw-ruler-left';
+      rulerLeft.textContent = 'Beat Division';
+      ruler.appendChild(rulerLeft);
+
+      const rulerGrid = document.createElement('div');
+      rulerGrid.className = 'daw-ruler-grid';
+
+      const globalBpb = this.globalNotation.beatsPerBar || 4;
+      for (let beat = 0; beat < globalBpb; ++beat) {
+        const indicator = document.createElement('div');
+        indicator.className = 'daw-beat-indicator';
+        if (beat === 0) {
+          indicator.style.left = '0%';
+          indicator.style.transform = 'none';
+        } else {
+          indicator.style.left = `${(beat / globalBpb) * 100}%`;
+          indicator.style.transform = 'translateX(-50%)';
+        }
+        indicator.innerHTML = `
+          <span class="daw-beat-badge">Beat ${beat + 1}</span>
+          <div class="daw-beat-tick"></div>
+        `;
+        rulerGrid.appendChild(indicator);
+      }
+      ruler.appendChild(rulerGrid);
+
+      const rulerRight = document.createElement('div');
+      rulerRight.className = 'daw-ruler-right';
+      ruler.appendChild(rulerRight);
+
+      this.pageContainer.appendChild(ruler);
+
       for (let b = startBar; b < endBar; b++) {
         const bar = tab.bars[b];
         const row = document.createElement('div');
@@ -1300,10 +1354,14 @@
 
         // Static DAW Structural Beat Grid Lines (Requirement 5)
         const bpb = bar.notation.beatsPerBar || 4;
-        for (let beat = 1; beat < bpb; ++beat) {
+        for (let beat = 0; beat < bpb; ++beat) {
           const beatLine = document.createElement('div');
           beatLine.className = 'daw-beat-line';
-          beatLine.style.left = `${(beat / bpb) * 100}%`;
+          if (beat === 0) {
+            beatLine.style.left = '0';
+          } else {
+            beatLine.style.left = `${(beat / bpb) * 100}%`;
+          }
           grid.appendChild(beatLine);
         }
 
@@ -3017,6 +3075,102 @@
         }
         this.songsMenu.style.display = 'none';
       };
+    }
+
+    showAccentMenu(e) {
+      if (!this.accentMenu || !this.themeAccentBtn) return;
+      const rect = this.themeAccentBtn.getBoundingClientRect();
+      this.accentMenu.style.left = `${rect.left}px`;
+      this.accentMenu.style.top = `${rect.bottom + 4}px`;
+
+      const presets = [
+        { name: 'Amber Copper', color: '#d97706' },
+        { name: 'Electric Blue', color: '#2563eb' },
+        { name: 'Emerald Green', color: '#059669' },
+        { name: 'Crimson Rose', color: '#e11d48' },
+        { name: 'Vivid Purple', color: '#7c3aed' },
+        { name: 'Golden Sun', color: '#eab308' },
+        { name: 'Cyan Teal', color: '#0891b2' }
+      ];
+
+      this.accentMenu.innerHTML = `
+        <div class="popup-menu-header">UI Theme Accent Color</div>
+        ${presets.map((p, i) => `
+          <div class="popup-menu-item" id="accent-preset-${i}" style="display:flex;align-items:center;gap:8px;">
+            <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background-color:${p.color};border:1px solid rgba(0,0,0,0.3);flex-shrink:0;"></span>
+            <span>${p.name}</span>
+          </div>
+        `).join('')}
+        <div class="popup-menu-separator"></div>
+        <div class="popup-menu-item" id="accent-custom" style="display:flex;align-items:center;gap:8px;">
+          <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:linear-gradient(135deg, #f43f5e, #3b82f6, #10b981);border:1px solid rgba(0,0,0,0.3);flex-shrink:0;"></span>
+          <span>Custom Accent Color...</span>
+        </div>
+      `;
+      this.accentMenu.style.display = 'block';
+
+      presets.forEach((p, i) => {
+        const el = document.getElementById(`accent-preset-${i}`);
+        if (el) {
+          el.onclick = () => {
+            this.setThemeAccent(p.color, p.name);
+            this.accentMenu.style.display = 'none';
+          };
+        }
+      });
+
+      const customEl = document.getElementById('accent-custom');
+      if (customEl && this.customAccentPicker) {
+        customEl.onclick = () => {
+          this.accentMenu.style.display = 'none';
+          this.customAccentPicker.click();
+        };
+      }
+    }
+
+    setThemeAccent(hexColor, name = null) {
+      if (!hexColor) return;
+      this.currentThemeAccent = hexColor;
+      localStorage.setItem('cc_theme_accent', hexColor);
+
+      // Derive hover and dark tones
+      let r = 217, g = 119, b = 6;
+      if (hexColor.startsWith('#') && hexColor.length >= 7) {
+        r = parseInt(hexColor.slice(1, 3), 16);
+        g = parseInt(hexColor.slice(3, 5), 16);
+        b = parseInt(hexColor.slice(5, 7), 16);
+      }
+      const hoverR = Math.min(255, Math.round(r * 1.15));
+      const hoverG = Math.min(255, Math.round(g * 1.15));
+      const hoverB = Math.min(255, Math.round(b * 1.15));
+      const hoverHex = `#${hoverR.toString(16).padStart(2, '0')}${hoverG.toString(16).padStart(2, '0')}${hoverB.toString(16).padStart(2, '0')}`;
+
+      const darkR = Math.max(0, Math.round(r * 0.8));
+      const darkG = Math.max(0, Math.round(g * 0.8));
+      const darkB = Math.max(0, Math.round(b * 0.8));
+      const darkHex = `#${darkR.toString(16).padStart(2, '0')}${darkG.toString(16).padStart(2, '0')}${darkB.toString(16).padStart(2, '0')}`;
+
+      document.documentElement.style.setProperty('--copper-accent', hexColor);
+      document.documentElement.style.setProperty('--copper-hover', hoverHex);
+      document.documentElement.style.setProperty('--copper-dark', darkHex);
+
+      const PRESET_MAP = {
+        '#d97706': 'Amber',
+        '#2563eb': 'Blue',
+        '#059669': 'Green',
+        '#e11d48': 'Crimson',
+        '#7c3aed': 'Purple',
+        '#eab308': 'Gold',
+        '#0891b2': 'Teal'
+      };
+
+      if (this.themeAccentBtn) {
+        const displayName = name || PRESET_MAP[hexColor.toLowerCase()] || hexColor.toUpperCase();
+        this.themeAccentBtn.textContent = `Accent: ${displayName} ▼`;
+      }
+      if (this.customAccentPicker) {
+        this.customAccentPicker.value = hexColor;
+      }
     }
 
     copyLyrics() {

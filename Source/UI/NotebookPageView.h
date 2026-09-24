@@ -109,6 +109,19 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NotebookViewport)
 };
 
+class DAWTimelineRulerComponent : public juce::Component
+{
+public:
+    DAWTimelineRulerComponent(LyricDocument& doc, float marginLineX);
+    void paint(juce::Graphics& g) override;
+
+private:
+    LyricDocument& document;
+    float marginX;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DAWTimelineRulerComponent)
+};
+
 class NotebookPageView : public juce::Component,
                          public LyricDocument::Listener
 {
@@ -146,6 +159,7 @@ private:
 
     static constexpr float MARGIN_X = 65.0f;
 
+    std::unique_ptr<DAWTimelineRulerComponent> timelineRuler;
     std::unique_ptr<NotebookPageContent> pageContent;
     NotebookViewport viewport;
 

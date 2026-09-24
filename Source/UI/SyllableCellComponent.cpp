@@ -1606,7 +1606,7 @@ void SyllableCellComponent::paint(juce::Graphics& g)
     if (syllableInPulse == 0)
     {
         auto stressRect = textBounds.reduced(1.25f);
-        g.setColour(document.getThemeTupletAccent().withAlpha(0.85f));
+        g.setColour(NotebookLookAndFeel::getAccentColour().withAlpha(0.85f));
         g.drawRoundedRectangle(stressRect, 2.0f, 2.5f);
     }
 
@@ -1669,11 +1669,11 @@ void SyllableCellComponent::resized()
     if (alignCenterBtn != nullptr)
         alignCenterBtn->setBounds(underlineX, underlineY, underlineW, underlineH);
 
-    // Corner '+' hover button: 12x12
+    // Corner '+' hover button: 12x12 placed on the outside bound below the cell
     int cornerW = 12;
-    int cornerH = 12;
-    int cornerY = boxH - cornerH - 1;
-    int cornerX = isCornerLeft ? 2 : (cellW - cornerW - 2);
+    int cornerH = 10;
+    int cornerY = boxH + 3;
+    int cornerX = isCornerLeft ? 1 : (cellW - cornerW - 1);
     if (cornerAddBtn != nullptr)
         cornerAddBtn->setBounds(cornerX, cornerY, cornerW, cornerH);
 

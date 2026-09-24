@@ -53,12 +53,13 @@ body.dark-mode {
   --menu-hover: #b45309;
 }
 
-* {
+*, button, input, select, textarea {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
   -webkit-user-select: none;
   user-select: none;
+  font-family: Calibri, "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif !important;
 }
 
 html, body {
@@ -67,7 +68,7 @@ html, body {
   overflow: hidden;
   background: var(--bg-app);
   color: var(--graphite);
-  font-family: Calibri, "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: Calibri, "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif !important;
 }
 
 #app-window {
@@ -125,11 +126,11 @@ header#notebook-header {
   border: 1px solid var(--btn-border);
   border-radius: 3px;
   padding: 3px 8px;
-  font-family: "Consolas", monospace;
+  font-family: Calibri, "Segoe UI", sans-serif;
   font-size: 13.5px;
   font-weight: 700;
   color: var(--graphite);
-  width: 136px;
+  width: 140px;
   height: 26px;
   outline: none;
   user-select: text;
@@ -198,7 +199,7 @@ button.vst-btn.toggled {
 }
 
 .daw-status-text {
-  font-family: "Consolas", monospace;
+  font-family: Calibri, "Segoe UI", sans-serif;
   font-size: 12px;
   font-weight: 700;
   color: var(--graphite);
@@ -382,8 +383,8 @@ button.vst-btn.toggled {
 
 /* Metric Cross-Rhythm Label: [333222]/6:4 */
 .bar-metric-label {
-  font-family: "Consolas", monospace;
-  font-size: 11.5px;
+  font-family: Calibri, "Segoe UI", sans-serif;
+  font-size: 12px;
   font-weight: 700;
   color: var(--graphite);
   width: 96px;
@@ -422,16 +423,93 @@ button.vst-btn.toggled {
 /* Static DAW Structural Beat Grid Lines (Requirement 5) */
 .daw-beat-line {
   position: absolute;
-  top: 2px;
-  bottom: 2px;
+  top: 0;
+  bottom: 0;
   width: 1px;
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(82, 82, 91, 0.35);
+  border-right: 1px dashed rgba(217, 119, 6, 0.45);
   pointer-events: none;
   z-index: 1;
 }
 
 body.dark-mode .daw-beat-line {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.28);
+  border-right: 1px dashed rgba(245, 158, 11, 0.50);
+}
+
+/* DAW Timeline Beat Ruler at Top of Display */
+.daw-timeline-ruler {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  border-bottom: 1.5px solid var(--paper-rule);
+  background: var(--header-bg);
+  margin-bottom: 3px;
+  position: sticky;
+  top: 0;
+  z-index: 25;
+}
+
+.daw-ruler-left {
+  width: 222px;
+  padding-left: 70px;
+  font-family: Calibri, "Segoe UI", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--light-graphite);
+  flex-shrink: 0;
+}
+
+.daw-ruler-grid {
+  display: flex;
+  flex: 1;
+  height: 100%;
+  position: relative;
+  margin: 0 6px;
+}
+
+.daw-ruler-right {
+  width: 121px;
+  flex-shrink: 0;
+}
+
+.daw-beat-indicator {
+  position: absolute;
+  top: 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.daw-beat-badge {
+  background: var(--paper-bg);
+  border: 1px solid var(--copper-accent);
+  border-radius: 3px;
+  color: var(--copper-dark);
+  font-family: Calibri, "Segoe UI", sans-serif;
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 0 5px;
+  line-height: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  white-space: nowrap;
+}
+
+body.dark-mode .daw-beat-badge {
+  background: var(--paper-bg);
+  color: var(--copper-hover);
+  border-color: var(--copper-accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.daw-beat-tick {
+  width: 1.5px;
+  height: 5px;
+  background: var(--copper-accent);
+  margin-top: 1px;
 }
 
 /* Pulse Group Component (2.2px rounded border defining the macro-pulse) */
@@ -447,13 +525,13 @@ body.dark-mode .daw-beat-line {
   z-index: 2;
 }
 
-/* Tuplet Bracket Under Pulse Group Box (Requirement 2) */
+/* Tuplet Bracket Above Pulse Group Box (Requirement 2) */
 .tuplet-bracket {
   position: absolute;
-  bottom: -11px;
+  top: -9px;
   left: 2px;
   right: 2px;
-  height: 8px;
+  height: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -463,10 +541,10 @@ body.dark-mode .daw-beat-line {
 
 .tuplet-bracket-line {
   position: absolute;
-  top: 0;
+  top: 1px;
   left: 0;
   right: 0;
-  height: 4px;
+  height: 5px;
   border-top: 1.5px solid var(--copper-accent);
   border-left: 1.5px solid var(--copper-accent);
   border-right: 1.5px solid var(--copper-accent);
@@ -481,7 +559,7 @@ body.dark-mode .daw-beat-line {
   font-weight: 700;
   color: var(--copper-accent);
   line-height: 1;
-  margin-top: -3px;
+  margin-top: -4px;
   z-index: 6;
 }
 
@@ -621,11 +699,12 @@ body.show-align-controls .cell-align-panel {
 }
 
 /* Syllable Cell Corner Hover Plus Button (+ alters line meter) */
+/* Positioned VISIBLY OUTSIDE below the cell's bottom border so it never covers any text */
 .cell-corner-add-btn {
   position: absolute;
-  bottom: 1px;
+  top: calc(100% + 4px);
   width: 14px;
-  height: 14px;
+  height: 10px;
   background: var(--btn-bg);
   border: 1px solid var(--copper-accent);
   color: var(--copper-accent);
@@ -642,6 +721,15 @@ body.show-align-controls .cell-align-panel {
   transition: transform 0.08s, background 0.08s, color 0.08s;
   pointer-events: auto;
   padding: 0;
+}
+/* Invisible hover bridge across the 4px gap so moving the mouse down to click never drops hover */
+.cell-corner-add-btn::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: -4px;
+  right: -4px;
+  bottom: -3px;
 }
 .cell-corner-add-btn:hover {
   background: var(--copper-accent);
@@ -786,8 +874,8 @@ body.show-align-controls .cell-align-panel {
 }
 
 .syl-count-badge {
-  font-family: "Consolas", monospace;
-  font-size: 10.5px;
+  font-family: Calibri, "Segoe UI", sans-serif;
+  font-size: 11px;
   font-weight: 700;
   color: var(--light-graphite);
   padding: 2px 4px;
@@ -1068,7 +1156,7 @@ body.dark-mode .notation-box:focus {
 }
 
 .shortcut-key-badge {
-  font-family: "Consolas", monospace;
+  font-family: Calibri, "Segoe UI", sans-serif;
   font-size: 11.5px;
   font-weight: 700;
   background: var(--btn-bg);

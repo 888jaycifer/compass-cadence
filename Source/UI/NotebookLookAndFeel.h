@@ -60,6 +60,11 @@ public:
         return juce::Colour(0xFFFF8F00);
     }
 
+    static juce::Colour getAccentColour() noexcept { return accentColour; }
+    static juce::Colour getAccentHoverColour() noexcept { return accentColour.brighter(0.18f); }
+    static juce::Colour getAccentDarkColour() noexcept { return accentColour.darker(0.18f); }
+    static void setAccentColour(const juce::Colour& colour) noexcept;
+
     void updateColours();
 
     // Renders realistic double-wire spiral binder rings with hole punches and metallic highlights
@@ -93,9 +98,14 @@ public:
                             const juce::Drawable* icon, const juce::Colour* textColour) override;
 
     juce::Font getTextButtonFont(juce::TextButton&, int buttonHeight) override;
+    juce::Font getLabelFont(juce::Label& label) override;
+    juce::Font getComboBoxFont(juce::ComboBox& box) override;
+    juce::Font getPopupMenuFont() override;
+    juce::Typeface::Ptr getTypefaceForFont(const juce::Font& font) override;
 
 private:
     static inline bool darkMode = false;
+    static inline juce::Colour accentColour = juce::Colour(0xFFD97706);
 };
 
 } // namespace CompassCadence

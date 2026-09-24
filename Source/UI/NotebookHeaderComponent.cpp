@@ -34,7 +34,7 @@ NotebookHeaderComponent::NotebookHeaderComponent(CompassCadenceAudioProcessor& p
     notationLabel.setTooltip("Metric cross-rhythm notation [subdivisions per pulse]/pulses:beats (e.g. [333222]/6:4, [4444]/4:4).");
     addAndMakeVisible(notationLabel);
 
-    notationEditor.setFont(juce::Font(juce::FontOptions("Consolas", 13.5f, juce::Font::bold)));
+    notationEditor.setFont(juce::Font(juce::FontOptions("Calibri", 14.0f, juce::Font::bold)));
     notationEditor.setJustification(juce::Justification::centred);
     notationEditor.setIndents(4, 1);
     notationEditor.addListener(this);
@@ -131,6 +131,10 @@ NotebookHeaderComponent::NotebookHeaderComponent(CompassCadenceAudioProcessor& p
             VowelColorCustomizerDialog::showDialog(this, *document);
     };
     addAndMakeVisible(rhymeColorsBtn);
+
+    themeAccentBtn.setTooltip("Choose UI Theme Accent Color (Amber, Blue, Green, Rose, Purple, Gold, Teal, or Custom)...");
+    themeAccentBtn.onClick = [this] { showThemeAccentMenu(); };
+    addAndMakeVisible(themeAccentBtn);
 
     followToggleBtn.setClickingTogglesState(true);
     followToggleBtn.setToggleState(processor.isFollowDAW(), juce::dontSendNotification);
@@ -386,7 +390,7 @@ NotebookHeaderComponent::NotebookHeaderComponent(CompassCadenceAudioProcessor& p
 
     // DAW Status (for DAW VST3 plugin mode)
     dawStatusLabel.setText("120.0 BPM  |  4/4  |  [STOPPED]", juce::dontSendNotification);
-    dawStatusLabel.setFont(juce::Font(juce::FontOptions("Consolas", 11.5f, juce::Font::bold)));
+    dawStatusLabel.setFont(juce::Font(juce::FontOptions("Calibri", 11.5f, juce::Font::bold)));
     dawStatusLabel.setColour(juce::Label::textColourId, NotebookLookAndFeel::getGraphiteColour());
     dawStatusLabel.setJustificationType(juce::Justification::centredRight);
     dawStatusLabel.setTooltip("Host DAW tempo (BPM), time signature, and transport playback status.");
@@ -1168,7 +1172,10 @@ void NotebookHeaderComponent::resized()
     curX += 96 + 3;
 
     rhymeColorsBtn.setBounds(curX, row2Y, 32, 26);
-    curX += 32 + 6;
+    curX += 32 + 4;
+
+    themeAccentBtn.setBounds(curX, row2Y, 52, 26);
+    curX += 52 + 6;
 
     followToggleBtn.setBounds(curX, row2Y, 114, 26);
     curX += 114 + 6;
@@ -1194,6 +1201,89 @@ void NotebookHeaderComponent::resized()
     prevPageBtn.setBounds(pageRight - 26 - 90 - 26, row2Y, 26, 26);
     viewModeToggleBtn.setBounds(pageRight - 26 - 90 - 26 - 6 - 58, row2Y, 58, 26);
     darkModeToggleBtn.setBounds(pageRight - 26 - 90 - 26 - 6 - 58 - 6 - 72, row2Y, 72, 26);
+}
+
+void NotebookHeaderComponent::showThemeAccentMenu()
+{
+    if (document == nullptr) return;
+
+    juce::PopupMenu menu;
+    menu.addSectionHeader("Theme Accent Color");
+
+    struct AccentPreset {
+        const char* name;
+        uint32_t colour;
+    };
+    static const AccentPreset presets[] = {
+        { "Amber Copper (Default)", 0xFFD97706 },
+        { "Electric Blue",          0xFF2563EB },
+        { "Emerald Green",          0xFF059669 },
+        { "Crimson Rose",           0xFFE11D48 },
+        { "Vivid Purple",           0xFF7C3AED },
+        { "Golden Sun",             0xFFF59E0B },
+        { "Cyan Teal",              0xFF0D9488 }
+    };
+
+    auto curAccent = NotebookLookAndFeel::getAccentColour();
+
+    for (int i = 0; i < 7; ++i)
+    {
+        bool isSelected = (curAccent.getARGB() == presets[i].colour);
+        menu.addItem(i + 1, presets[i].name, true, isSelected);
+    }
+
+    menu.addSeparator();
+    menu.addItem(8, "Custom Color...", true);
+
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&themeAccentBtn), [this](int result)
+    {
+        if (result >= 1 && result <= 7)
+        {
+            static const uint32_t colours[] = {
+                0xFFD97706, 0xFF2563EB, 0xFF059669, 0xFFE11D48, 0xFF7C3AED, 0xFFF59E0B, 0xFF0D9488
+            };
+            juce::Colour chosen(colours[result - 1]);
+            NotebookLookAndFeel::setAccentColour(chosen);
+            if (document != nullptr)
+            {
+                document->setThemeTupletAccent(chosen);
+                document->notifyChanged();
+            }
+            updateEditorColours();
+            repaint();
+            if (auto* editor = findParentComponentOfClass<juce::AudioProcessorEditor>())
+                editor->repaint();
+        }
+        else if (result == 8)
+        {
+            auto* selector = new juce::ColourSelector(
+                juce::ColourSelector::showColourAtTop | juce::ColourSelector::showSliders | juce::ColourSelector::showColourspace);
+            selector->setCurrentColour(NotebookLookAndFeel::getAccentColour());
+            selector->setSize(300, 260);
+            selector->addChangeListener(this);
+
+            juce::CallOutBox::launchAsynchronously(std::unique_ptr<juce::Component>(selector),
+                                                   themeAccentBtn.getScreenBounds(), nullptr);
+        }
+    });
+}
+
+void NotebookHeaderComponent::changeListenerCallback(juce::ChangeBroadcaster* source)
+{
+    if (auto* cs = dynamic_cast<juce::ColourSelector*>(source))
+    {
+        auto col = cs->getCurrentColour();
+        NotebookLookAndFeel::setAccentColour(col);
+        if (document != nullptr)
+        {
+            document->setThemeTupletAccent(col);
+            document->notifyChanged();
+        }
+        updateEditorColours();
+        repaint();
+        if (auto* editor = findParentComponentOfClass<juce::AudioProcessorEditor>())
+            editor->repaint();
+    }
 }
 
 } // namespace CompassCadence

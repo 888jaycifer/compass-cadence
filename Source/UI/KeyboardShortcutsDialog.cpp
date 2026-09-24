@@ -166,7 +166,7 @@ void KeyboardShortcutsDialog::resized()
 
                 // Shortcut keys badge
                 g.setColour(accentCol);
-                g.setFont(juce::Font(juce::FontOptions("Consolas", 12.0f, juce::Font::bold)));
+                g.setFont(juce::Font(juce::FontOptions("Calibri", 12.0f, juce::Font::bold)));
                 g.drawText(item.keys, 80, y, 165, rH, juce::Justification::centredLeft);
 
                 // Action description

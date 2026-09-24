@@ -12,7 +12,8 @@ namespace CompassCadence
 class NotebookHeaderComponent : public juce::Component,
                                 public juce::TextEditor::Listener,
                                 public juce::ComboBox::Listener,
-                                public LyricDocument::Listener
+                                public LyricDocument::Listener,
+                                public juce::ChangeListener
 {
 public:
     NotebookHeaderComponent(CompassCadenceAudioProcessor& processor, LyricDocument& doc);
@@ -25,6 +26,8 @@ public:
     void updateDarkModeDisplay();
     void updateAlignToggleDisplay();
     void updateStandaloneTransportDisplay();
+    void showThemeAccentMenu();
+    void changeListenerCallback(juce::ChangeBroadcaster* source) override;
     void refreshPresetCombo();
     void promptSavePreset();
     void promptDeletePreset();
@@ -82,6 +85,7 @@ private:
     // Toggles
     juce::TextButton rhymeToggleBtn { "Rhymes: ON" };
     juce::TextButton rhymeColorsBtn { "Pal" };
+    juce::TextButton themeAccentBtn { "Accent" };
     juce::TextButton followToggleBtn { "Follow DAW: ON" };
     juce::TextButton copyBtn { "Copy" };
     juce::TextButton exportBtn { "Export" };

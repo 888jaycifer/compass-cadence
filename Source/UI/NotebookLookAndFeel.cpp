@@ -24,6 +24,13 @@ void NotebookLookAndFeel::setDarkMode(bool dark) noexcept
         gActiveNotebookLookAndFeel->updateColours();
 }
 
+void NotebookLookAndFeel::setAccentColour(const juce::Colour& colour) noexcept
+{
+    accentColour = colour;
+    if (gActiveNotebookLookAndFeel != nullptr)
+        gActiveNotebookLookAndFeel->updateColours();
+}
+
 void NotebookLookAndFeel::updateColours()
 {
     setColour(juce::ResizableWindow::backgroundColourId, getPaperColour());
@@ -36,7 +43,7 @@ void NotebookLookAndFeel::updateColours()
     setColour(juce::TextEditor::highlightColourId, isDarkMode() ? juce::Colour(0x603B82F6) : juce::Colour(0x60FFF59D));
     setColour(juce::TextEditor::highlightedTextColourId, getGraphiteColour());
     setColour(juce::TextEditor::outlineColourId, isDarkMode() ? juce::Colour(0xFF52525B) : juce::Colour(0xFFCBD5E1));
-    setColour(juce::TextEditor::focusedOutlineColourId, isDarkMode() ? juce::Colour(0xFFF59E0B) : juce::Colour(0xFFD97706));
+    setColour(juce::TextEditor::focusedOutlineColourId, isDarkMode() ? getAccentHoverColour() : getAccentColour());
 
     setColour(juce::ComboBox::backgroundColourId, isDarkMode() ? juce::Colour(0xFF27272A) : juce::Colour(0xFFF3EFE6));
     setColour(juce::ComboBox::textColourId, getGraphiteColour());
@@ -45,7 +52,7 @@ void NotebookLookAndFeel::updateColours()
 
     setColour(juce::PopupMenu::backgroundColourId, isDarkMode() ? juce::Colour(0xFF27272A) : getPaperColour());
     setColour(juce::PopupMenu::textColourId, getGraphiteColour());
-    setColour(juce::PopupMenu::highlightedBackgroundColourId, isDarkMode() ? juce::Colour(0xFF3F3F46) : juce::Colour(0x60FFF59D));
+    setColour(juce::PopupMenu::highlightedBackgroundColourId, isDarkMode() ? getAccentDarkColour() : getAccentColour().withAlpha(0.25f));
     setColour(juce::PopupMenu::highlightedTextColourId, getGraphiteColour());
 }
 
@@ -60,8 +67,8 @@ void NotebookLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& 
     juce::Colour base;
     if (button.getToggleState())
     {
-        // Toggled ON: Soft stationery highlighter wash in light, warm amber glow in dark
-        base = darkMode ? juce::Colour(0xFFB45309) : juce::Colour(0xFFFFF176);
+        // Toggled ON: Theme accent glow
+        base = darkMode ? getAccentDarkColour() : getAccentColour().withAlpha(0.25f);
     }
     else
     {
@@ -77,9 +84,9 @@ void NotebookLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& 
     g.setColour(base);
     g.fillRoundedRectangle(bounds, 3.0f);
 
-    // Fine pencil graphite border
+    // Fine pencil graphite border or active theme accent
     juce::Colour borderCol = button.getToggleState()
-        ? (darkMode ? juce::Colour(0xFFF59E0B) : juce::Colour(0xFFD97706))
+        ? (darkMode ? getAccentHoverColour() : getAccentColour())
         : (darkMode ? juce::Colour(0xFF52525B) : getLightGraphiteColour().withAlpha(0.65f));
 
     g.setColour(borderCol);
@@ -286,6 +293,28 @@ void NotebookLookAndFeel::drawPopupMenuItem(juce::Graphics& g, const juce::Recta
 juce::Font NotebookLookAndFeel::getTextButtonFont(juce::TextButton&, int buttonHeight)
 {
     return juce::Font(juce::FontOptions("Calibri", (float)buttonHeight * 0.5f, juce::Font::bold));
+}
+
+juce::Font NotebookLookAndFeel::getLabelFont(juce::Label& label)
+{
+    return juce::Font(juce::FontOptions("Calibri", label.getFont().getHeight(), label.getFont().getStyleFlags()));
+}
+
+juce::Font NotebookLookAndFeel::getComboBoxFont(juce::ComboBox&)
+{
+    return juce::Font(juce::FontOptions("Calibri", 12.0f, juce::Font::plain));
+}
+
+juce::Font NotebookLookAndFeel::getPopupMenuFont()
+{
+    return juce::Font(juce::FontOptions("Calibri", 13.0f, juce::Font::plain));
+}
+
+juce::Typeface::Ptr NotebookLookAndFeel::getTypefaceForFont(const juce::Font& font)
+{
+    juce::Font f(font);
+    f.setTypefaceName("Calibri");
+    return LookAndFeel_V4::getTypefaceForFont(f);
 }
 
 void NotebookLookAndFeel::drawSpiralRings(juce::Graphics& g, float startY, float endY,

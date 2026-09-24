@@ -9,7 +9,7 @@ BarLineComponent::BarLineComponent(LyricDocument& doc, int bar, float marginLine
 {
     // Per-line editable metric notation field
     metricLabel.setEditable(true, true, false);
-    metricLabel.setFont(juce::Font(juce::FontOptions("Consolas", 11.5f, juce::Font::bold)));
+    metricLabel.setFont(juce::Font(juce::FontOptions("Calibri", 12.0f, juce::Font::bold)));
     metricLabel.setColour(juce::Label::textColourId, NotebookLookAndFeel::getGraphiteColour());
     metricLabel.setColour(juce::Label::textWhenEditingColourId, NotebookLookAndFeel::getGraphiteColour());
     metricLabel.setColour(juce::Label::backgroundColourId, juce::Colours::transparentBlack);
@@ -38,7 +38,7 @@ BarLineComponent::BarLineComponent(LyricDocument& doc, int bar, float marginLine
     };
     addAndMakeVisible(incSylBtn);
 
-    sylCountLabel.setFont(juce::Font(juce::FontOptions("Consolas", 10.5f, juce::Font::bold)));
+    sylCountLabel.setFont(juce::Font(juce::FontOptions("Calibri", 11.0f, juce::Font::bold)));
     sylCountLabel.setColour(juce::Label::backgroundColourId, juce::Colours::transparentBlack);
     sylCountLabel.setColour(juce::Label::outlineColourId, juce::Colours::transparentBlack);
     sylCountLabel.setJustificationType(juce::Justification::centred);
@@ -100,8 +100,8 @@ void BarLineComponent::updateSyllableCounter()
     juce::String text = juce::String(actual) + "/" + juce::String(gridTotal);
     if (isCustom)
     {
-        // High-contrast deep copper amber indicates customized count
-        sylCountLabel.setColour(juce::Label::textColourId, juce::Colour(0xFFB45309));
+        // High-contrast deep theme accent indicates customized count
+        sylCountLabel.setColour(juce::Label::textColourId, NotebookLookAndFeel::getAccentDarkColour());
         sylCountLabel.setTooltip("Custom spoken syllable count: " + juce::String(actual) + " (Grid: " + juce::String(gridTotal) + "). Double-click or right-click to reset.");
     }
     else
@@ -246,8 +246,8 @@ void BarLineComponent::paint(juce::Graphics& g)
 
     if (isBarActiveInDAW)
     {
-        // High-contrast deep copper marker when active
-        g.setColour(juce::Colour(0xFFB45309));
+        // High-contrast deep theme accent marker when active
+        g.setColour(NotebookLookAndFeel::getAccentDarkColour());
         g.setFont(juce::Font(juce::FontOptions("Calibri", 12.0f, juce::Font::bold)));
     }
     else
@@ -272,7 +272,7 @@ void BarLineComponent::paint(juce::Graphics& g)
         arrow.lineTo(baseX, centerY + halfH);
         arrow.closeSubPath();
 
-        g.setColour(juce::Colour(0xFFD97706)); // Deep warm copper amber
+        g.setColour(NotebookLookAndFeel::getAccentColour());
         g.fillPath(arrow);
 
         // Accent rule line along marginX for this active line
@@ -298,13 +298,22 @@ void BarLineComponent::paint(juce::Graphics& g)
     {
         float totalPulseSpan = (float)(pulseEndX - pulseStartX);
         juce::Colour dawBeatCol = document.isDarkMode()
-            ? juce::Colours::white.withAlpha(0.04f)
-            : juce::Colours::black.withAlpha(0.06f);
-        g.setColour(dawBeatCol);
-        for (int b = 1; b < bpb; ++b)
+            ? juce::Colour(0x55FFFFFF)
+            : juce::Colour(0x5552525B);
+        juce::Colour dawBeatAccent = document.isDarkMode()
+            ? NotebookLookAndFeel::getAccentHoverColour().withAlpha(0.65f)
+            : NotebookLookAndFeel::getAccentColour().withAlpha(0.55f);
+
+        const float beatDash[] = { 4.0f, 3.0f };
+
+        for (int b = 0; b < bpb; ++b)
         {
             float lineX = (float)pulseStartX + totalPulseSpan * ((float)b / (float)bpb);
-            g.drawLine(lineX, 2.0f, lineX, bounds.getBottom() - 2.0f, 1.0f);
+            g.setColour(dawBeatCol);
+            g.drawLine(lineX, 0.0f, lineX, bounds.getBottom(), 1.0f);
+
+            g.setColour(dawBeatAccent);
+            g.drawDashedLine(juce::Line<float>(lineX, 0.0f, lineX, bounds.getBottom()), beatDash, 2, 1.0f);
         }
     }
 }
@@ -406,8 +415,8 @@ void BarLineComponent::editorShown(juce::Label* label, juce::TextEditor& editor)
         editor.setColour(juce::TextEditor::textColourId, dark ? juce::Colour(0xFFF1F5F9) : juce::Colour(0xFF262626));
         editor.setColour(juce::TextEditor::backgroundColourId, dark ? juce::Colour(0xFF27272A) : juce::Colour(0xFFFFFFFF));
         editor.setColour(juce::TextEditor::outlineColourId, NotebookLookAndFeel::getPulseBoxBorderColour());
-        editor.setColour(juce::TextEditor::focusedOutlineColourId, dark ? juce::Colour(0xFFD97706) : NotebookLookAndFeel::getPulseBoxBorderColour());
-        editor.setFont(juce::Font(juce::FontOptions("Consolas", 11.5f, juce::Font::bold)));
+        editor.setColour(juce::TextEditor::focusedOutlineColourId, dark ? NotebookLookAndFeel::getAccentHoverColour() : NotebookLookAndFeel::getAccentColour());
+        editor.setFont(juce::Font(juce::FontOptions("Calibri", 12.0f, juce::Font::bold)));
         editor.applyColourToAllText(dark ? juce::Colour(0xFFF1F5F9) : juce::Colour(0xFF262626), true);
     }
 }
